@@ -1,7 +1,7 @@
 import { Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { AuthenticatedRequest } from '../middleware/auth';
-import { filesToDataUrls } from '../utils/imageStorage';
+import { uploadFilesToCloudinary } from '../utils/cloudinaryUpload';
 
 const prisma = new PrismaClient();
 
@@ -79,9 +79,9 @@ export const createEvent = async (req: AuthenticatedRequest, res: Response): Pro
       return;
     }
 
-    // Imagens convertidas para base64 (memoryStorage — não dependem do filesystem)
+    // Upload das imagens para o Cloudinary
     const uploadedFiles = (req.files as Express.Multer.File[]) || [];
-    const imageDataUrls = filesToDataUrls(uploadedFiles);
+    const imageDataUrls = await uploadFilesToCloudinary(uploadedFiles, 'eufogroup-tasks/events');
 
     const tipoFeedback = (tipo === 'NEGATIVE') ? 'NEGATIVE' : 'POSITIVE';
 
@@ -126,9 +126,9 @@ export const updateEvent = async (req: AuthenticatedRequest, res: Response): Pro
       return;
     }
 
-    // Novas imagens em base64
+    // Upload das novas imagens para o Cloudinary
     const uploadedFiles = (req.files as Express.Multer.File[]) || [];
-    const newImageDataUrls = filesToDataUrls(uploadedFiles);
+    const newImageUrls = await uploadFilesToCloudinary(uploadedFiles, 'eufogroup-tasks/events');
 
     // Parse imagens mantidas
     let keptImages: string[] = [];
@@ -139,7 +139,7 @@ export const updateEvent = async (req: AuthenticatedRequest, res: Response): Pro
       keptImages = existing.images;
     }
 
-    const allImages = [...keptImages, ...newImageDataUrls];
+    const allImages = [...keptImages, ...newImageUrls];
 
     const updateData: Record<string, unknown> = {
       images: allImages,

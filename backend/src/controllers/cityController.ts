@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { AuthenticatedRequest } from '../middleware/auth';
-import { filesToDataUrls } from '../utils/imageStorage';
+import { uploadFilesToCloudinary, deleteFromCloudinary, extractPublicId } from '../utils/cloudinaryUpload';
 
 const prisma = new PrismaClient();
 
@@ -135,15 +135,22 @@ export const uploadCityBackground = async (req: AuthenticatedRequest, res: Respo
       return;
     }
 
-    // Remove backgrounds antigos (só do banco — não há arquivos em disco)
+    // Deleta backgrounds antigos do Cloudinary e do banco
+    const oldBgs = await prisma.cityBackground.findMany({ where: { cityId } });
+    await Promise.all(
+      oldBgs.map(bg => {
+        const pid = extractPublicId(bg.imageUrl);
+        return pid ? deleteFromCloudinary(pid) : Promise.resolve();
+      })
+    );
     await prisma.cityBackground.deleteMany({ where: { cityId } });
 
-    // Converter imagens para base64 e salvar no banco
-    const dataUrls = filesToDataUrls(uploadedFiles);
+    // Faz upload para o Cloudinary e salva as URLs no banco
+    const imageUrls = await uploadFilesToCloudinary(uploadedFiles, 'eufogroup-tasks/city-backgrounds');
     const backgrounds = await Promise.all(
-      dataUrls.map((dataUrl, index) =>
+      imageUrls.map((imageUrl, index) =>
         prisma.cityBackground.create({
-          data: { cityId, imageUrl: dataUrl, order: index }
+          data: { cityId, imageUrl, order: index }
         })
       )
     );
@@ -168,7 +175,9 @@ export const deleteCityBackground = async (req: AuthenticatedRequest, res: Respo
       return;
     }
 
-    // Remove apenas do banco (sem arquivo em disco)
+    // Deleta do Cloudinary e do banco
+    const pid = extractPublicId(bg.imageUrl);
+    if (pid) await deleteFromCloudinary(pid);
     await prisma.cityBackground.delete({ where: { id: bgId } });
 
     const remaining = await prisma.cityBackground.count({ where: { cityId } });
