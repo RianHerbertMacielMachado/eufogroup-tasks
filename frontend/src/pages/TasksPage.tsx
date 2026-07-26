@@ -382,9 +382,14 @@ export default function TasksPage() {
                 <p className="text-gray-400 text-xs line-clamp-2">{task.description}</p>
                 <div className="flex items-center gap-2 text-xs text-gray-500">
                   <span>👤</span>
-                  <span className="truncate">{task.employee?.name}</span>
+                  <span className="truncate">
+                    {task.employee?.name || task.employeeSnapshot || '—'}
+                    {!task.employee && (task.employeeSnapshot) && (
+                      <span className="ml-1 text-gray-600 italic">(excluído)</span>
+                    )}
+                  </span>
                   <span className="text-gray-600">•</span>
-                  <span>{task.employee?.cargo}</span>
+                  <span>{task.employee?.cargo || task.cargoSnapshot || ''}</span>
                 </div>
                 <div className="flex items-center justify-between text-xs">
                   <span className={clsx('font-medium', {
@@ -458,8 +463,19 @@ export default function TasksPage() {
                 </div>
                 <p className="text-gray-300">{selectedTask.description}</p>
                 <div className="grid grid-cols-2 gap-3 pt-3 border-t border-gray-700 text-xs text-gray-400">
-                  <div><p className="text-gray-500 mb-1">Funcionário</p><p className="text-white">{selectedTask.employee?.name}</p></div>
-                  <div><p className="text-gray-500 mb-1">Cargo</p><p className="text-white">{selectedTask.employee?.cargo}</p></div>
+                  <div>
+                    <p className="text-gray-500 mb-1">Funcionário</p>
+                    <p className="text-white">
+                      {selectedTask.employee?.name || selectedTask.employeeSnapshot || '—'}
+                      {!selectedTask.employee && selectedTask.employeeSnapshot && (
+                        <span className="ml-1 text-xs text-gray-500 italic">(excluído)</span>
+                      )}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-gray-500 mb-1">Cargo</p>
+                    <p className="text-white">{selectedTask.employee?.cargo || selectedTask.cargoSnapshot || '—'}</p>
+                  </div>
                   <div><p className="text-gray-500 mb-1">Prazo</p><p className="text-white">{format(new Date(selectedTask.dueDate), 'dd/MM/yyyy HH:mm', { locale: ptBR })}</p></div>
                   <div><p className="text-gray-500 mb-1">Criada em</p><p className="text-white">{format(new Date(selectedTask.createdAt), 'dd/MM/yyyy HH:mm', { locale: ptBR })}</p></div>
                   {selectedTask.cancelReason && (

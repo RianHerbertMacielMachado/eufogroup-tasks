@@ -99,7 +99,11 @@ export const createTask = async (req: AuthenticatedRequest, res: Response): Prom
         cityId,
         dueDate: new Date(dueDate),
         priority: priority || 'MEDIUM',
-        createdById: req.user?.userId
+        createdById: req.user?.userId,
+        // Snapshot preenchido na criação — garante exibição mesmo após exclusão do funcionário
+        employeeSnapshot: employee.name,
+        cargoSnapshot:    employee.cargo,
+        funcaoSnapshot:   employee.funcao || ''
       },
       include: {
         employee: { select: { id: true, name: true, cargo: true } }
