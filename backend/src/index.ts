@@ -15,6 +15,10 @@ import userRoutes from './routes/users';
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Necessário para Railway/Heroku/qualquer proxy reverso
+// Sem isso, express-rate-limit lança erro ao ler X-Forwarded-For
+app.set('trust proxy', 1);
+
 // Cria diretório de uploads se não existir
 const uploadsDir = path.join(process.cwd(), 'uploads');
 if (!fs.existsSync(uploadsDir)) {
