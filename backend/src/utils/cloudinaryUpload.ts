@@ -36,6 +36,9 @@ function generateSignature(params: Record<string, string | number>, apiSecret: s
 /**
  * Faz upload de um único arquivo (buffer) para o Cloudinary.
  * Retorna a URL segura (https) da imagem.
+ *
+ * GIFs animados são enviados como binário (Blob) para preservar a animação.
+ * Outros formatos são enviados como data URI base64.
  */
 export async function uploadBufferToCloudinary(
   buffer: Buffer,
@@ -44,20 +47,33 @@ export async function uploadBufferToCloudinary(
 ): Promise<string> {
   const { cloudName, apiKey, apiSecret } = getCloudinaryConfig();
 
+  const isGif = mimeType === 'image/gif';
+
   const timestamp = Math.round(Date.now() / 1000).toString();
-  const params: Record<string, string | number> = { folder, timestamp };
+
+  // GIF: preserva animação forçando format=gif e sem transformações
+  const params: Record<string, string | number> = isGif
+    ? { folder, format: 'gif', timestamp }
+    : { folder, timestamp };
+
   const signature = generateSignature(params, apiSecret);
 
-  // Codifica o buffer em base64 data URL para envio via multipart
-  const base64Data = buffer.toString('base64');
-  const dataUri    = `data:${mimeType};base64,${base64Data}`;
-
   const formData = new FormData();
-  formData.append('file',      dataUri);
   formData.append('folder',    folder);
   formData.append('timestamp', timestamp);
   formData.append('api_key',   apiKey);
   formData.append('signature', signature);
+
+  if (isGif) {
+    // GIF animado: envia como Blob binário (data URI quebra a animação)
+    formData.append('format', 'gif');
+    const blob = new Blob([buffer], { type: 'image/gif' });
+    formData.append('file', blob, 'upload.gif');
+  } else {
+    // Outros formatos: data URI base64 é suficiente
+    const base64Data = buffer.toString('base64');
+    formData.append('file', `data:${mimeType};base64,${base64Data}`);
+  }
 
   const response = await fetch(
     `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,

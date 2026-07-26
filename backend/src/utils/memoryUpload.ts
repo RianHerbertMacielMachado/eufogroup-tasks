@@ -9,8 +9,11 @@ import multer from 'multer';
 const memoryUpload = multer({
   storage: multer.memoryStorage(),
   fileFilter: (req, file, cb) => {
-    const allowed = /\.(jpg|jpeg|png|gif|webp)$/i;
-    if (allowed.test(file.originalname)) {
+    // Valida por MIME type (confiável) E por extensão (fallback)
+    const allowedMimes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    const allowedExts  = /\.(jpg|jpeg|png|gif|webp)$/i;
+
+    if (allowedMimes.includes(file.mimetype) || allowedExts.test(file.originalname)) {
       cb(null, true);
     } else {
       cb(new Error('Apenas imagens são permitidas (JPG, PNG, GIF, WebP)'));
