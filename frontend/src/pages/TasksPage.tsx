@@ -49,17 +49,24 @@ export default function TasksPage() {
       const params: Record<string, string> = { page: String(page), limit: '20' };
       if (statusFilter) params.status = statusFilter;
       const { data } = await api.get(`/cities/${cityId}/tasks`, { params });
-      setTasks(data.data.tasks);
-      setPagination(data.data.pagination);
-    } catch { toast.error('Erro ao carregar tasks'); }
+      // Defensive: garante que tasks sempre seja um array
+      setTasks(Array.isArray(data?.data?.tasks) ? data.data.tasks : []);
+      setPagination(data?.data?.pagination ?? null);
+    } catch {
+      toast.error('Erro ao carregar tasks');
+      setTasks([]);
+    }
     finally { setIsLoading(false); }
   };
 
   const loadEmployees = async () => {
     try {
       const { data } = await api.get(`/cities/${cityId}/employees`, { params: { limit: '200' } });
-      setEmployees(data.data.employees);
-    } catch {}
+      // Defensive: garante que employees sempre seja um array
+      setEmployees(Array.isArray(data?.data?.employees) ? data.data.employees : []);
+    } catch {
+      setEmployees([]);
+    }
   };
 
   const handleCreate = async (e: React.FormEvent) => {

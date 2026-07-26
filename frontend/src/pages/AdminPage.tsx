@@ -34,7 +34,7 @@ export default function AdminPage() {
   const loadCities = async () => {
     try {
       const { data } = await api.get('/cities');
-      setCities(data.data || []);
+      setCities(Array.isArray(data?.data) ? data.data : []);
     } catch { toast.error('Erro ao carregar cidades'); }
     finally { setIsLoading(false); }
   };
@@ -42,7 +42,7 @@ export default function AdminPage() {
   const loadUsers = async () => {
     try {
       const { data } = await api.get('/admin/users');
-      setUsers(data.data || []);
+      setUsers(Array.isArray(data?.data) ? data.data : []);
     } catch {}
   };
 
@@ -117,7 +117,7 @@ export default function AdminPage() {
 
   const openUserEdit = (u: User) => {
     setEditUser(u);
-    setUserForm({ name: u.name, discordId: u.discordId, email: u.email || '', role: u.role, cityIds: u.cities.map(c => c.id), password: '' });
+    setUserForm({ name: u.name, discordId: u.discordId, email: u.email || '', role: u.role, cityIds: Array.isArray(u.cities) ? u.cities.map(c => c.id) : [], password: '' });
     setShowUserModal(true);
   };
 
@@ -233,7 +233,7 @@ export default function AdminPage() {
                         <span className={`text-xs px-2 py-0.5 rounded-full ${u.role === 'SUPER_ADMIN' ? 'bg-purple-500/20 text-purple-400' : u.role === 'ADMIN' ? 'bg-blue-500/20 text-blue-400' : 'bg-gray-700 text-gray-400'}`}>
                           {u.role}
                         </span>
-                        {u.cities.map(c => (
+                        {(u.cities ?? []).map(c => (
                           <span key={c.id} className="text-xs px-2 py-0.5 rounded-full bg-primary-500/10 text-primary-400">{c.name}</span>
                         ))}
                       </div>

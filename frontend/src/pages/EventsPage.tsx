@@ -26,17 +26,24 @@ export default function EventsPage() {
     setIsLoading(true);
     try {
       const { data } = await api.get(`/cities/${cityId}/events`, { params: { page, limit: 20 } });
-      setEvents(data.data.events);
-      setTotalPages(data.data.pagination.pages);
-    } catch { toast.error('Erro ao carregar eventos'); }
+      // Defensive: garante que events sempre seja um array
+      setEvents(Array.isArray(data?.data?.events) ? data.data.events : []);
+      setTotalPages(data?.data?.pagination?.pages ?? 1);
+    } catch {
+      toast.error('Erro ao carregar eventos');
+      setEvents([]);
+    }
     finally { setIsLoading(false); }
   };
 
   const loadEmployees = async () => {
     try {
       const { data } = await api.get(`/cities/${cityId}/employees`, { params: { limit: 200 } });
-      setEmployees(data.data.employees);
-    } catch {}
+      // Defensive: garante que employees sempre seja um array
+      setEmployees(Array.isArray(data?.data?.employees) ? data.data.employees : []);
+    } catch {
+      setEmployees([]);
+    }
   };
 
   const handleEmployeeChange = (empId: string) => {

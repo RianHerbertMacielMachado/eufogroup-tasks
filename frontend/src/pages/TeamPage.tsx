@@ -22,8 +22,12 @@ export default function TeamPage() {
     setIsLoading(true);
     try {
       const { data } = await api.get(`/cities/${cityId}/employees`, { params: { limit: 200 } });
-      setEmployees(data.data.employees);
-    } catch { toast.error('Erro ao carregar equipe'); }
+      // Defensive: garante que employees sempre seja um array
+      setEmployees(Array.isArray(data?.data?.employees) ? data.data.employees : []);
+    } catch {
+      toast.error('Erro ao carregar equipe');
+      setEmployees([]);
+    }
     finally { setIsLoading(false); }
   };
 

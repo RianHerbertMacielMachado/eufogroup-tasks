@@ -15,7 +15,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (token && storedUser) {
       setAccessToken(token);
       try {
-        setUser(JSON.parse(storedUser));
+        const parsed = JSON.parse(storedUser);
+        // Garante que cities sempre existe como array (compatibilidade com sessões antigas)
+        if (parsed && !Array.isArray(parsed.cities)) {
+          parsed.cities = [];
+        }
+        setUser(parsed);
       } catch {}
     }
     setIsLoading(false);
@@ -24,6 +29,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const login = async (discordId: string, password: string) => {
     const { data } = await api.post('/auth/login', { discordId, password });
     const { accessToken: token, refreshToken, user: userData } = data.data;
+    
+    // Garante que cities sempre existe como array
+    if (!Array.isArray(userData.cities)) userData.cities = [];
     
     localStorage.setItem('accessToken', token);
     localStorage.setItem('refreshToken', refreshToken);

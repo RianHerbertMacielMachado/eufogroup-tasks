@@ -30,7 +30,7 @@ export default function CitySelectPage() {
   };
 
   const handleCitySelect = (city: City) => {
-    const userCityIds = user?.cities.map(c => c.id) || [];
+    const userCityIds = user?.cities?.map(c => c.id) ?? [];
     const isSuperAdmin = user?.role === 'SUPER_ADMIN';
     
     if (!isSuperAdmin && !userCityIds.includes(city.id)) {
@@ -43,7 +43,7 @@ export default function CitySelectPage() {
     toast.success(`Acessando ${city.name}`);
   };
 
-  const userCityIds = user?.cities.map(c => c.id) || [];
+  const userCityIds = user?.cities?.map(c => c.id) ?? [];
   const isSuperAdmin = user?.role === 'SUPER_ADMIN';
 
   return (
