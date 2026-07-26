@@ -60,7 +60,10 @@ function CityBgModal({
       await api.delete(`/cities/${city.id}/backgrounds/${bgId}`);
       toast.success('Imagem removida');
       loadExisting();
-    } catch { toast.error('Erro ao remover imagem'); }
+    } catch (e: unknown) {
+      const msg = (e as { response?: { data?: { error?: string } } })?.response?.data?.error;
+      toast.error(msg || 'Erro ao remover imagem');
+    }
   };
 
   const handleSave = async () => {
@@ -84,7 +87,10 @@ function CityBgModal({
         toast.success('Backgrounds salvos com sucesso!');
         onSaved();
         onClose();
-      } catch { toast.error('Erro ao fazer upload'); }
+      } catch (e: unknown) {
+        const msg = (e as { response?: { data?: { error?: string } } })?.response?.data?.error;
+        toast.error(msg || 'Erro ao fazer upload');
+      }
       finally { setIsUploading(false); }
     } else {
       toast.success('Configurações salvas!');
@@ -295,7 +301,10 @@ function GlobalBgModal({
       });
       toast.success(`Background de "${label}" atualizado!`);
       onClose();
-    } catch { toast.error('Erro ao salvar backgrounds'); }
+    } catch (e: unknown) {
+      const msg = (e as { response?: { data?: { error?: string } } })?.response?.data?.error;
+      toast.error(msg || 'Erro ao salvar backgrounds');
+    }
     finally { setIsUploading(false); }
   };
 

@@ -109,7 +109,8 @@ export const createEvent = async (req: AuthenticatedRequest, res: Response): Pro
     res.status(201).json({ success: true, data: event, message: 'Feedback registrado com sucesso' });
   } catch (error) {
     console.error('Create event error:', error);
-    res.status(500).json({ success: false, error: 'Erro ao criar feedback' });
+    const msg = error instanceof Error ? error.message : String(error);
+    res.status(500).json({ success: false, error: msg });
   }
 };
 
@@ -160,7 +161,8 @@ export const updateEvent = async (req: AuthenticatedRequest, res: Response): Pro
     res.json({ success: true, data: updated, message: 'Feedback atualizado com sucesso' });
   } catch (error) {
     console.error('Update event error:', error);
-    res.status(500).json({ success: false, error: 'Erro ao atualizar feedback' });
+    const msg = error instanceof Error ? error.message : String(error);
+    res.status(500).json({ success: false, error: msg });
   }
 };
 

@@ -160,8 +160,9 @@ export const uploadCityBackground = async (req: AuthenticatedRequest, res: Respo
 
     res.json({ success: true, data: backgrounds, message: 'Backgrounds atualizados com sucesso' });
   } catch (error) {
-    console.error('Upload background error:', error);
-    res.status(500).json({ success: false, error: 'Erro ao fazer upload do background' });
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error('Upload background error:', msg);
+    res.status(500).json({ success: false, error: msg });
   }
 };
 

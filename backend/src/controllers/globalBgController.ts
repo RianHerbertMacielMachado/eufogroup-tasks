@@ -61,7 +61,8 @@ export const uploadGlobalBackgrounds = async (req: AuthenticatedRequest, res: Re
     res.json({ success: true, data: created, message: 'Backgrounds globais atualizados' });
   } catch (error) {
     console.error('Upload global backgrounds error:', error);
-    res.status(500).json({ success: false, error: 'Erro ao fazer upload' });
+    const msg = error instanceof Error ? error.message : String(error);
+    res.status(500).json({ success: false, error: msg });
   }
 };
 
