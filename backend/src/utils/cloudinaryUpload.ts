@@ -1,7 +1,8 @@
 /**
  * cloudinaryUpload.ts
- * Upload de imagens para o Cloudinary via API REST (sem SDK pesado).
- * Usa apenas fetch nativo do Node 18+ e crypto para gerar a assinatura SHA-1.
+ * Upload de imagens para o Cloudinary via HTTPS multipart (form-data).
+ * Usa o pacote `form-data` + módulo `https` nativo do Node — sem SDK pesado.
+ * Suporta JPG, PNG, WebP e GIF animado.
  *
  * Variáveis de ambiente necessárias (Railway):
  *   CLOUDINARY_CLOUD_NAME
@@ -9,6 +10,8 @@
  *   CLOUDINARY_API_SECRET
  */
 import crypto from 'crypto';
+import https  from 'https';
+import FormData from 'form-data';
 
 function getCloudinaryConfig() {
   const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
@@ -23,22 +26,51 @@ function getCloudinaryConfig() {
   return { cloudName, apiKey, apiSecret };
 }
 
-/** Gera assinatura SHA-1 para autenticar o upload */
-function generateSignature(params: Record<string, string | number>, apiSecret: string): string {
-  const sorted = Object.keys(params)
+/** Gera assinatura SHA-1 — apenas parâmetros que vão no body (exceto file, api_key) */
+function generateSignature(
+  params: Record<string, string | number>,
+  apiSecret: string
+): string {
+  const str = Object.keys(params)
     .sort()
     .map(k => `${k}=${params[k]}`)
     .join('&');
 
-  return crypto.createHash('sha1').update(sorted + apiSecret).digest('hex');
+  return crypto.createHash('sha1').update(str + apiSecret).digest('hex');
+}
+
+/** Envia FormData via https nativo e retorna o body como string */
+function httpsPost(hostname: string, path: string, form: FormData): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const req = https.request(
+      {
+        hostname,
+        path,
+        method: 'POST',
+        headers: form.getHeaders(),
+      },
+      (res) => {
+        const chunks: Buffer[] = [];
+        res.on('data', (c: Buffer) => chunks.push(c));
+        res.on('end', () => {
+          const body = Buffer.concat(chunks).toString('utf8');
+          if ((res.statusCode ?? 0) >= 300) {
+            reject(new Error(`Cloudinary upload falhou (${res.statusCode}): ${body}`));
+          } else {
+            resolve(body);
+          }
+        });
+      }
+    );
+    req.on('error', reject);
+    form.pipe(req);
+  });
 }
 
 /**
- * Faz upload de um único arquivo (buffer) para o Cloudinary.
- * Retorna a URL segura (https) da imagem.
- *
- * GIFs animados são enviados como binário (Blob) para preservar a animação.
- * Outros formatos são enviados como data URI base64.
+ * Faz upload de um único Buffer para o Cloudinary.
+ * GIF animado é enviado como binário — preserva todos os frames.
+ * Retorna a URL segura (https://res.cloudinary.com/...).
  */
 export async function uploadBufferToCloudinary(
   buffer: Buffer,
@@ -47,45 +79,37 @@ export async function uploadBufferToCloudinary(
 ): Promise<string> {
   const { cloudName, apiKey, apiSecret } = getCloudinaryConfig();
 
-  const isGif = mimeType === 'image/gif';
-
   const timestamp = Math.round(Date.now() / 1000).toString();
 
-  // GIF: preserva animação forçando format=gif e sem transformações
-  const params: Record<string, string | number> = isGif
-    ? { folder, format: 'gif', timestamp }
-    : { folder, timestamp };
+  // Parâmetros assinados (NÃO incluir: file, api_key, resource_type)
+  const signedParams: Record<string, string | number> = { folder, timestamp };
+  const signature = generateSignature(signedParams, apiSecret);
 
-  const signature = generateSignature(params, apiSecret);
+  // Extensão/nome de arquivo a partir do MIME type
+  const extMap: Record<string, string> = {
+    'image/jpeg': 'jpg',
+    'image/png':  'png',
+    'image/gif':  'gif',
+    'image/webp': 'webp',
+  };
+  const ext      = extMap[mimeType] ?? 'jpg';
+  const filename = `upload.${ext}`;
 
-  const formData = new FormData();
-  formData.append('folder',    folder);
-  formData.append('timestamp', timestamp);
-  formData.append('api_key',   apiKey);
-  formData.append('signature', signature);
+  const form = new FormData();
+  // O arquivo DEVE ser o primeiro campo para o Cloudinary
+  form.append('file', buffer, { filename, contentType: mimeType });
+  form.append('folder',    folder);
+  form.append('timestamp', timestamp);
+  form.append('api_key',   apiKey);
+  form.append('signature', signature);
 
-  if (isGif) {
-    // GIF animado: envia como Blob binário (data URI quebra a animação)
-    formData.append('format', 'gif');
-    const blob = new Blob([buffer], { type: 'image/gif' });
-    formData.append('file', blob, 'upload.gif');
-  } else {
-    // Outros formatos: data URI base64 é suficiente
-    const base64Data = buffer.toString('base64');
-    formData.append('file', `data:${mimeType};base64,${base64Data}`);
-  }
-
-  const response = await fetch(
-    `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
-    { method: 'POST', body: formData }
+  const body = await httpsPost(
+    'api.cloudinary.com',
+    `/v1_1/${cloudName}/image/upload`,
+    form
   );
 
-  if (!response.ok) {
-    const err = await response.text();
-    throw new Error(`Cloudinary upload falhou (${response.status}): ${err}`);
-  }
-
-  const result = await response.json() as { secure_url: string };
+  const result = JSON.parse(body) as { secure_url: string };
   return result.secure_url;
 }
 
@@ -105,7 +129,6 @@ export async function uploadFilesToCloudinary(
 /**
  * Deleta uma imagem do Cloudinary pelo public_id.
  * O public_id está no caminho da URL: .../eufogroup-tasks/abc123
- * Passe o caminho completo incluindo a pasta: "eufogroup-tasks/abc123"
  */
 export async function deleteFromCloudinary(publicId: string): Promise<void> {
   const { cloudName, apiKey, apiSecret } = getCloudinaryConfig();
@@ -114,22 +137,22 @@ export async function deleteFromCloudinary(publicId: string): Promise<void> {
   const params    = { public_id: publicId, timestamp };
   const signature = generateSignature(params, apiSecret);
 
-  const formData = new FormData();
-  formData.append('public_id', publicId);
-  formData.append('timestamp', timestamp);
-  formData.append('api_key',   apiKey);
-  formData.append('signature', signature);
+  const form = new FormData();
+  form.append('public_id', publicId);
+  form.append('timestamp', timestamp);
+  form.append('api_key',   apiKey);
+  form.append('signature', signature);
 
-  await fetch(
-    `https://api.cloudinary.com/v1_1/${cloudName}/image/destroy`,
-    { method: 'POST', body: formData }
-  );
-  // Erros de deleção são silenciosos — não devem bloquear fluxo principal
+  try {
+    await httpsPost('api.cloudinary.com', `/v1_1/${cloudName}/image/destroy`, form);
+  } catch {
+    // Erros de deleção são silenciosos — não devem bloquear o fluxo principal
+  }
 }
 
 /**
  * Extrai o public_id de uma URL do Cloudinary.
- * Ex: https://res.cloudinary.com/cloud/image/upload/v123/eufogroup-tasks/abc.jpg
+ * Ex: https://res.cloudinary.com/cloud/image/upload/v123/eufogroup-tasks/abc.gif
  *     → "eufogroup-tasks/abc"
  */
 export function extractPublicId(url: string): string | null {
