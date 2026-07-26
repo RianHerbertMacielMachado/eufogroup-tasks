@@ -160,6 +160,8 @@ export default function EventsPage() {
   // Filtros
   const [filterCargo, setFilterCargo] = useState('');
   const [filterFuncao, setFilterFuncao] = useState('');
+  const [filterMonth, setFilterMonth] = useState('');
+  const [filterYear, setFilterYear] = useState('');
 
   // Modal criar
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -190,14 +192,16 @@ export default function EventsPage() {
       loadEmployees();
       loadFilterOptions();
     }
-  }, [cityId, page, filterCargo, filterFuncao]);
+  }, [cityId, page, filterCargo, filterFuncao, filterMonth, filterYear]);
 
   const loadEvents = async () => {
     setIsLoading(true);
     try {
       const params: Record<string, string> = { page: String(page), limit: '20' };
-      if (filterCargo) params.cargo = filterCargo;
+      if (filterCargo)  params.cargo  = filterCargo;
       if (filterFuncao) params.funcao = filterFuncao;
+      if (filterMonth)  params.month  = filterMonth;
+      if (filterYear)   params.year   = filterYear;
       const { data } = await api.get(`/cities/${cityId}/events`, { params });
       setEvents(Array.isArray(data?.data?.events) ? data.data.events : []);
       setTotalPages(data?.data?.pagination?.pages ?? 1);
@@ -285,7 +289,7 @@ export default function EventsPage() {
     try {
       const fd = new FormData();
       fd.append('description', editForm.description);
-      if (editForm.link) fd.append('link', editForm.link);
+      fd.append('link', editForm.link); // sempre envia, mesmo vazio — permite limpar o campo
       fd.append('keptImages', JSON.stringify(editKeptImages));
       editImages.forEach(f => fd.append('images', f));
 
@@ -320,9 +324,11 @@ export default function EventsPage() {
   const clearFilters = () => {
     setFilterCargo('');
     setFilterFuncao('');
+    setFilterMonth('');
+    setFilterYear('');
     setPage(1);
   };
-  const hasFilters = filterCargo || filterFuncao;
+  const hasFilters = filterCargo || filterFuncao || filterMonth || filterYear;
 
   // ── render ─────────────────────────────────────────────────────────────────
   return (
@@ -340,7 +346,7 @@ export default function EventsPage() {
 
       {/* Filtros */}
       <div className="card flex flex-wrap gap-3 items-end">
-        <div className="flex-1 min-w-[160px]">
+        <div className="flex-1 min-w-[140px]">
           <label className="block text-xs text-gray-400 mb-1">Filtrar por Cargo</label>
           <select
             value={filterCargo}
@@ -351,7 +357,7 @@ export default function EventsPage() {
             {cargos.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
         </div>
-        <div className="flex-1 min-w-[160px]">
+        <div className="flex-1 min-w-[140px]">
           <label className="block text-xs text-gray-400 mb-1">Filtrar por Função</label>
           <select
             value={filterFuncao}
@@ -360,6 +366,41 @@ export default function EventsPage() {
           >
             <option value="">Todas as funções</option>
             {funcoes.map(f => <option key={f} value={f}>{f}</option>)}
+          </select>
+        </div>
+        <div className="flex-1 min-w-[120px]">
+          <label className="block text-xs text-gray-400 mb-1">Mês</label>
+          <select
+            value={filterMonth}
+            onChange={e => { setFilterMonth(e.target.value); setPage(1); }}
+            className="input-field text-sm"
+          >
+            <option value="">Todos os meses</option>
+            <option value="1">Janeiro</option>
+            <option value="2">Fevereiro</option>
+            <option value="3">Março</option>
+            <option value="4">Abril</option>
+            <option value="5">Maio</option>
+            <option value="6">Junho</option>
+            <option value="7">Julho</option>
+            <option value="8">Agosto</option>
+            <option value="9">Setembro</option>
+            <option value="10">Outubro</option>
+            <option value="11">Novembro</option>
+            <option value="12">Dezembro</option>
+          </select>
+        </div>
+        <div className="flex-1 min-w-[100px]">
+          <label className="block text-xs text-gray-400 mb-1">Ano</label>
+          <select
+            value={filterYear}
+            onChange={e => { setFilterYear(e.target.value); setPage(1); }}
+            className="input-field text-sm"
+          >
+            <option value="">Todos os anos</option>
+            {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i).map(y => (
+              <option key={y} value={String(y)}>{y}</option>
+            ))}
           </select>
         </div>
         {hasFilters && (

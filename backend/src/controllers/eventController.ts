@@ -8,12 +8,31 @@ const prisma = new PrismaClient();
 export const getEvents = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const cityId = req.cityId!;
-    const { employeeId, cargo, funcao, page = '1', limit = '20' } = req.query as Record<string, string>;
+    const { employeeId, cargo, funcao, month, year, page = '1', limit = '20' } = req.query as Record<string, string>;
 
     const where: Record<string, unknown> = { cityId };
     if (employeeId) where.employeeId = employeeId;
     if (cargo)      where.cargo = { contains: cargo, mode: 'insensitive' };
     if (funcao)     where.funcao = { contains: funcao, mode: 'insensitive' };
+
+    // Filtro por mês e/ou ano (baseado em createdAt)
+    if (month || year) {
+      const now = new Date();
+      const y = year  ? parseInt(year)  : now.getFullYear();
+      const m = month ? parseInt(month) : null; // 1-12
+
+      if (m !== null) {
+        // Mês + ano: intervalo exato do mês
+        const start = new Date(y, m - 1, 1, 0, 0, 0, 0);
+        const end   = new Date(y, m,     1, 0, 0, 0, 0); // primeiro dia do próximo mês
+        where.createdAt = { gte: start, lt: end };
+      } else {
+        // Só ano: intervalo do ano inteiro
+        const start = new Date(y,     0, 1, 0, 0, 0, 0);
+        const end   = new Date(y + 1, 0, 1, 0, 0, 0, 0);
+        where.createdAt = { gte: start, lt: end };
+      }
+    }
 
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
@@ -134,7 +153,8 @@ export const updateEvent = async (req: AuthenticatedRequest, res: Response): Pro
       where: { id: eventId },
       data: {
         ...(description !== undefined && { description }),
-        ...(link !== undefined && { link: link || null }),
+        // Sempre atualiza link: string vazia ou undefined → null (remove o link)
+        link: (link !== undefined) ? (link.trim() || null) : existing.link,
         images: allImages
       },
       include: {

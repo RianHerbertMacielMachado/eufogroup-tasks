@@ -105,11 +105,11 @@ model Task {
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
 
-  employeeId  String
+  employeeId  String?    // nullable: permite deletar funcionário sem perder a task
   cityId      String     // ⭐ Isolamento Multi-Tenant
   createdById String?
 
-  employee    Employee   @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  employee    Employee?  @relation(fields: [employeeId], references: [id], onDelete: SetNull)
   city        City       @relation(fields: [cityId], references: [id], onDelete: Cascade)
 
   @@map("tasks")
@@ -125,12 +125,12 @@ model Event {
   createdAt   DateTime @default(now()) // ⭐ Imutável após criação
   updatedAt   DateTime @updatedAt
 
-  employeeId  String
+  employeeId  String?  // nullable: permite deletar funcionário sem perder o feedback
   cityId      String   // ⭐ Isolamento Multi-Tenant
   createdById String?
 
-  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  city        City     @relation(fields: [cityId], references: [id], onDelete: Cascade)
+  employee    Employee? @relation(fields: [employeeId], references: [id], onDelete: SetNull)
+  city        City      @relation(fields: [cityId], references: [id], onDelete: Cascade)
 
   @@map("events")
 }
