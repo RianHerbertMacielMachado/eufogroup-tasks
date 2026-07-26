@@ -154,9 +154,30 @@ export default function TeamPage() {
   const [registerInOtherCities, setRegisterInOtherCities] = useState(false);
   const [extraCityIds, setExtraCityIds] = useState<string[]>(['']);
 
-  const userCities: City[] = Array.isArray(user?.cities) ? user!.cities : [];
+  // Lista de cidades disponíveis carregada da API (não depende de user.cities)
+  const [availableCities, setAvailableCities] = useState<City[]>([]);
 
-  useEffect(() => { if (cityId) loadEmployees(); }, [cityId]);
+  const isSuperAdmin = user?.role === 'SUPER_ADMIN';
+  // IDs de cidades que o usuário tem acesso (do JWT)
+  const userCityIds: string[] = Array.isArray(user?.cities)
+    ? (user!.cities as City[]).map(c => c.id).filter(Boolean)
+    : [];
+
+  useEffect(() => { if (cityId) { loadEmployees(); loadAvailableCities(); } }, [cityId]);
+
+  const loadAvailableCities = async () => {
+    try {
+      const { data } = await api.get('/cities');
+      const allCities: City[] = Array.isArray(data?.data) ? data.data : [];
+      // Super Admin vê todas; outros veem apenas as cidades às quais têm acesso
+      const filtered = isSuperAdmin
+        ? allCities
+        : allCities.filter(c => userCityIds.includes(c.id));
+      setAvailableCities(filtered);
+    } catch {
+      setAvailableCities([]);
+    }
+  };
 
   const loadEmployees = async () => {
     setIsLoading(true);
@@ -209,7 +230,7 @@ export default function TeamPage() {
           try {
             await api.post(`/cities/${extraId}/employees`, form);
           } catch {
-            const city = userCities.find(c => c.id === extraId);
+            const city = availableCities.find(c => c.id === extraId);
             errors.push(city?.name || extraId);
           }
         }
@@ -256,7 +277,7 @@ export default function TeamPage() {
     e.funcao.toLowerCase().includes(search.toLowerCase())
   );
 
-  const otherAvailableCities = userCities.filter(c => c.id !== cityId);
+  const otherAvailableCities = availableCities.filter(c => c.id !== cityId);
 
   return (
     <div className="space-y-5 animate-fade-in">
@@ -418,7 +439,7 @@ export default function TeamPage() {
                         <p className="text-xs text-gray-400 mb-2">Selecione a(s) cidade(s):</p>
                         <ExtraCitySelector
                           currentCityId={cityId!}
-                          availableCities={userCities}
+                          availableCities={availableCities}
                           selected={extraCityIds}
                           onChange={setExtraCityIds}
                         />
@@ -432,7 +453,7 @@ export default function TeamPage() {
                             <div className="flex flex-wrap gap-1.5">
                               {/* cidade atual */}
                               {(() => {
-                                const current = userCities.find(c => c.id === cityId);
+                                const current = availableCities.find(c => c.id === cityId);
                                 return current ? (
                                   <span className="text-xs bg-primary-500/20 text-primary-300 px-2 py-0.5 rounded-full">
                                     🏙️ {current.name} <span className="opacity-60">(atual)</span>
@@ -441,7 +462,7 @@ export default function TeamPage() {
                               })()}
                               {/* cidades extras */}
                               {extraCityIds.filter(Boolean).map(id => {
-                                const c = userCities.find(cc => cc.id === id);
+                                const c = availableCities.find(cc => cc.id === id);
                                 return c ? (
                                   <span key={id} className="text-xs bg-gray-700 text-gray-300 px-2 py-0.5 rounded-full">
                                     🏙️ {c.name}

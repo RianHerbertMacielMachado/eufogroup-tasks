@@ -118,12 +118,29 @@ export default function TasksPage() {
   const [createInOtherCities, setCreateInOtherCities] = useState(false);
   const [extraCityIds, setExtraCityIds] = useState<string[]>(['']);
 
-  // cidades disponíveis para o user (do JWT via AuthContext)
-  const userCities: City[] = Array.isArray(user?.cities) ? user!.cities : [];
+  // Cidades disponíveis carregadas da API (confiável para SUPER_ADMIN e usuários comuns)
+  const [availableCities, setAvailableCities] = useState<City[]>([]);
+  const isSuperAdmin = user?.role === 'SUPER_ADMIN';
+  const userCityIds: string[] = Array.isArray(user?.cities)
+    ? (user!.cities as City[]).map(c => c.id).filter(Boolean)
+    : [];
 
   useEffect(() => {
-    if (cityId) { loadTasks(); loadEmployees(); }
+    if (cityId) { loadTasks(); loadEmployees(); loadAvailableCities(); }
   }, [cityId, statusFilter, page]);
+
+  const loadAvailableCities = async () => {
+    try {
+      const { data } = await api.get('/cities');
+      const allCities: City[] = Array.isArray(data?.data) ? data.data : [];
+      const filtered = isSuperAdmin
+        ? allCities
+        : allCities.filter(c => userCityIds.includes(c.id));
+      setAvailableCities(filtered);
+    } catch {
+      setAvailableCities([]);
+    }
+  };
 
   const loadTasks = async () => {
     setIsLoading(true);
@@ -186,7 +203,7 @@ export default function TasksPage() {
             employeeId: form.employeeId, // backend irá validar
           });
         } catch {
-          const city = userCities.find(c => c.id === extraCityId);
+          const city = availableCities.find(c => c.id === extraCityId);
           extraErrors.push(city?.name || extraCityId);
         }
       }
@@ -245,7 +262,7 @@ export default function TasksPage() {
     : '📋 Registro de Tasks';
 
   // Cidades disponíveis exceto a atual (para o seletor multi-cidade)
-  const otherAvailableCities = userCities.filter(c => c.id !== cityId);
+  const otherAvailableCities = availableCities.filter(c => c.id !== cityId);
 
   return (
     <div className="space-y-5 animate-fade-in">
@@ -481,14 +498,14 @@ export default function TasksPage() {
                         <p className="text-xs text-gray-400 mb-2">Selecione a(s) cidade(s):</p>
                         <ExtraCitySelector
                           currentCityId={cityId!}
-                          availableCities={userCities}
+                          availableCities={availableCities}
                           selected={extraCityIds}
                           onChange={setExtraCityIds}
                         />
                         {extraCityIds.filter(Boolean).length > 0 && (
                           <div className="mt-2 flex flex-wrap gap-1.5">
                             {extraCityIds.filter(Boolean).map(id => {
-                              const c = userCities.find(cc => cc.id === id);
+                              const c = availableCities.find(cc => cc.id === id);
                               return c ? (
                                 <span key={id} className="text-xs bg-primary-500/20 text-primary-300 px-2 py-0.5 rounded-full">
                                   🏙️ {c.name}
