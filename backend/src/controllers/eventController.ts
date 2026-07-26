@@ -1,6 +1,5 @@
 import { Response } from 'express';
 import { PrismaClient } from '@prisma/client';
-import path from 'path';
 import { AuthenticatedRequest } from '../middleware/auth';
 
 const prisma = new PrismaClient();
@@ -171,19 +170,36 @@ export const deleteEvent = async (req: AuthenticatedRequest, res: Response): Pro
 };
 
 // ─── GET /cities/:cityId/events/filter-options ───────────────────────────────
-// Retorna valores únicos de cargo e funcao para os filtros
+// Retorna valores únicos de cargo e funcao — combinando eventos existentes
+// com employees ativos (para que novos registros também apareçam como opção)
 export const getEventFilterOptions = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const cityId = req.cityId!;
 
-    // Busca todos os funcionários ativos da cidade para os filtros
+    // Valores que já existem em eventos gravados
+    const existingEvents = await prisma.event.findMany({
+      where: { cityId },
+      select: { cargo: true, funcao: true }
+    });
+
+    // Valores dos employees ativos (para opções futuras)
     const employees = await prisma.employee.findMany({
       where: { cityId, isActive: true },
       select: { cargo: true, funcao: true }
     });
 
-    const cargos = [...new Set(employees.map(e => e.cargo).filter(Boolean))].sort();
-    const funcoes = [...new Set(employees.map(e => e.funcao).filter(Boolean))].sort();
+    // União: garante que filtramos apenas valores não-vazios
+    const allCargos = [
+      ...existingEvents.map(e => e.cargo),
+      ...employees.map(e => e.cargo)
+    ];
+    const allFuncoes = [
+      ...existingEvents.map(e => e.funcao),
+      ...employees.map(e => e.funcao)
+    ];
+
+    const cargos = [...new Set(allCargos.filter(v => v && v.trim() !== ''))].sort();
+    const funcoes = [...new Set(allFuncoes.filter(v => v && v.trim() !== ''))].sort();
 
     res.json({ success: true, data: { cargos, funcoes } });
   } catch (error) {
