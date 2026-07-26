@@ -27,63 +27,135 @@ interface TaskForm {
 }
 interface CancelForm { taskId: string; reason: string; }
 
-// ─── componente de seleção de cidades extras ──────────────────────────────────
-interface ExtraCitySelectorProps {
+// ─── Entrada de cidade+funcionário para multi-cidade ─────────────────────────
+interface ExtraEntry { cityId: string; employeeId: string; }
+
+interface ExtraCityRowProps {
+  entry: ExtraEntry;
+  index: number;
   currentCityId: string;
   availableCities: City[];
-  selected: string[];
-  onChange: (ids: string[]) => void;
+  usedCityIds: Set<string>;
+  onUpdate: (idx: number, entry: ExtraEntry) => void;
+  onRemove: (idx: number) => void;
 }
 
-function ExtraCitySelector({ currentCityId, availableCities, selected, onChange }: ExtraCitySelectorProps) {
+function ExtraCityRow({
+  entry, index, currentCityId, availableCities, usedCityIds, onUpdate, onRemove
+}: ExtraCityRowProps) {
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [loadingEmps, setLoadingEmps] = useState(false);
+
+  // Lista de cidades disponíveis para este slot (excluindo a atual e as já usadas, exceto a própria)
+  const options = availableCities.filter(
+    c => c.id !== currentCityId && (!usedCityIds.has(c.id) || c.id === entry.cityId)
+  );
+
+  // Carrega employees ao mudar a cidade selecionada
+  useEffect(() => {
+    if (!entry.cityId) { setEmployees([]); return; }
+    setLoadingEmps(true);
+    api.get(`/cities/${entry.cityId}/employees`, { params: { limit: 200 } })
+      .then(({ data }) => {
+        setEmployees(Array.isArray(data?.data?.employees) ? data.data.employees : []);
+      })
+      .catch(() => setEmployees([]))
+      .finally(() => setLoadingEmps(false));
+  }, [entry.cityId]);
+
+  return (
+    <div className="border border-gray-700 rounded-xl p-3 space-y-2 bg-gray-900/50">
+      <div className="flex gap-2 items-center">
+        {/* Seletor de cidade */}
+        <select
+          value={entry.cityId}
+          onChange={e => onUpdate(index, { cityId: e.target.value, employeeId: '' })}
+          className="input-field flex-1 text-sm"
+        >
+          <option value="">Selecione a cidade...</option>
+          {options.map(c => (
+            <option key={c.id} value={c.id}>{c.name}</option>
+          ))}
+        </select>
+        <button
+          type="button"
+          onClick={() => onRemove(index)}
+          className="w-8 h-8 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg flex items-center justify-center flex-shrink-0 transition-colors"
+          title="Remover"
+        >✕</button>
+      </div>
+
+      {/* Seletor de funcionário (aparece quando cidade é selecionada) */}
+      {entry.cityId && (
+        <div className="pl-1">
+          {loadingEmps ? (
+            <div className="flex items-center gap-2 text-gray-500 text-xs py-1">
+              <div className="w-3 h-3 border border-gray-500 border-t-primary-400 rounded-full animate-spin" />
+              Carregando funcionários...
+            </div>
+          ) : employees.length === 0 ? (
+            <p className="text-orange-400 text-xs py-1">
+              ⚠️ Nenhum funcionário cadastrado nesta cidade
+            </p>
+          ) : (
+            <select
+              value={entry.employeeId}
+              onChange={e => onUpdate(index, { ...entry, employeeId: e.target.value })}
+              className="input-field text-sm"
+              required
+            >
+              <option value="">Selecione o funcionário nesta cidade...</option>
+              {employees.map(emp => (
+                <option key={emp.id} value={emp.id}>
+                  {emp.name} — {emp.cargo}
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Gerenciador de entradas extras ──────────────────────────────────────────
+interface ExtraEntriesManagerProps {
+  currentCityId: string;
+  availableCities: City[];
+  entries: ExtraEntry[];
+  onChange: (entries: ExtraEntry[]) => void;
+}
+
+function ExtraEntriesManager({ currentCityId, availableCities, entries, onChange }: ExtraEntriesManagerProps) {
   const otherCities = availableCities.filter(c => c.id !== currentCityId);
+  const usedCityIds = new Set([currentCityId, ...entries.map(e => e.cityId).filter(Boolean)]);
 
-  const addSlot = () => onChange([...selected, '']);
-
-  const updateSlot = (idx: number, val: string) => {
-    const updated = [...selected];
-    updated[idx] = val;
+  const add = () => onChange([...entries, { cityId: '', employeeId: '' }]);
+  const update = (idx: number, entry: ExtraEntry) => {
+    const updated = [...entries];
+    updated[idx] = entry;
     onChange(updated);
   };
-
-  const removeSlot = (idx: number) => {
-    onChange(selected.filter((_, i) => i !== idx));
-  };
-
-  // Cidades já ocupadas (não mostrar nas outras opções)
-  const usedIds = new Set([currentCityId, ...selected.filter(Boolean)]);
+  const remove = (idx: number) => onChange(entries.filter((_, i) => i !== idx));
 
   return (
     <div className="space-y-2 mt-2">
-      {selected.map((val, idx) => {
-        const options = otherCities.filter(c => !usedIds.has(c.id) || c.id === val);
-        return (
-          <div key={idx} className="flex gap-2 items-center">
-            <select
-              value={val}
-              onChange={e => updateSlot(idx, e.target.value)}
-              className="input-field flex-1 text-sm"
-            >
-              <option value="">Selecione a cidade...</option>
-              {options.map(c => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
-            </select>
-            <button
-              type="button"
-              onClick={() => removeSlot(idx)}
-              className="w-8 h-8 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg flex items-center justify-center flex-shrink-0 transition-colors"
-              title="Remover"
-            >✕</button>
-          </div>
-        );
-      })}
-
-      {/* botão adicionar mais */}
-      {selected.length < otherCities.length && (
+      {entries.map((entry, idx) => (
+        <ExtraCityRow
+          key={idx}
+          entry={entry}
+          index={idx}
+          currentCityId={currentCityId}
+          availableCities={availableCities}
+          usedCityIds={usedCityIds}
+          onUpdate={update}
+          onRemove={remove}
+        />
+      ))}
+      {entries.length < otherCities.length && (
         <button
           type="button"
-          onClick={addSlot}
+          onClick={add}
           className="text-sm text-primary-400 hover:text-primary-300 flex items-center gap-1 transition-colors"
         >
           ➕ Adicionar outra cidade
@@ -116,7 +188,8 @@ export default function TasksPage() {
 
   // ── multi-cidade ────────────────────────────────────────────────────────────
   const [createInOtherCities, setCreateInOtherCities] = useState(false);
-  const [extraCityIds, setExtraCityIds] = useState<string[]>(['']);
+  // Cada entrada tem cityId + employeeId próprio daquela cidade
+  const [extraEntries, setExtraEntries] = useState<ExtraEntry[]>([]);
 
   // Cidades disponíveis carregadas da API (confiável para SUPER_ADMIN e usuários comuns)
   const [availableCities, setAvailableCities] = useState<City[]>([]);
@@ -171,45 +244,42 @@ export default function TasksPage() {
       toast.error('Preencha todos os campos obrigatórios'); return;
     }
 
-    // Validar cidades extras
-    const validExtraCities = createInOtherCities
-      ? extraCityIds.filter(id => id && id !== cityId)
+    // Validar entradas extras — cada uma precisa de cidade E funcionário
+    const validExtras = createInOtherCities
+      ? extraEntries.filter(en => en.cityId && en.cityId !== cityId)
       : [];
 
-    // Verificar se há duplicatas
-    const uniqueExtras = [...new Set(validExtraCities)];
-    if (uniqueExtras.length !== validExtraCities.length) {
-      toast.error('Há cidades duplicadas na seleção'); return;
+    const missingEmployee = validExtras.find(en => !en.employeeId);
+    if (missingEmployee) {
+      const city = availableCities.find(c => c.id === missingEmployee.cityId);
+      toast.error(`Selecione um funcionário para a cidade: ${city?.name || missingEmployee.cityId}`);
+      return;
     }
 
     setIsSubmitting(true);
     try {
-      // Criar task na cidade atual
-      const payload = {
-        ...form,
-        // Se criando em outras cidades, podemos enviar lista completa
-        // ou criar sequencialmente
-      };
-      await api.post(`/cities/${cityId}/tasks`, payload);
+      // 1. Criar na cidade atual
+      await api.post(`/cities/${cityId}/tasks`, form);
 
-      // Criar task nas cidades extras (sequencialmente)
+      // 2. Criar em cada cidade extra com o funcionário específico daquela cidade
       const extraErrors: string[] = [];
-      for (const extraCityId of uniqueExtras) {
+      for (const entry of validExtras) {
         try {
-          // Para outras cidades, usamos mesmo conteúdo mas sem employeeId (pode não existir lá)
-          // Enviamos apenas os dados básicos da task
-          await api.post(`/cities/${extraCityId}/tasks`, {
-            ...form,
-            employeeId: form.employeeId, // backend irá validar
+          await api.post(`/cities/${entry.cityId}/tasks`, {
+            title: form.title,
+            description: form.description,
+            dueDate: form.dueDate,
+            priority: form.priority,
+            employeeId: entry.employeeId, // ← funcionário da cidade extra
           });
         } catch {
-          const city = availableCities.find(c => c.id === extraCityId);
-          extraErrors.push(city?.name || extraCityId);
+          const city = availableCities.find(c => c.id === entry.cityId);
+          extraErrors.push(city?.name || entry.cityId);
         }
       }
 
-      if (uniqueExtras.length > 0 && extraErrors.length === 0) {
-        toast.success(`Task criada em ${1 + uniqueExtras.length} cidades!`);
+      if (validExtras.length > 0 && extraErrors.length === 0) {
+        toast.success(`Task criada em ${1 + validExtras.length} cidades!`);
       } else if (extraErrors.length > 0) {
         toast.success('Task criada na cidade atual');
         toast.error(`Falha ao criar em: ${extraErrors.join(', ')}`);
@@ -229,7 +299,7 @@ export default function TasksPage() {
   const resetCreateModal = () => {
     setForm({ title: '', description: '', employeeId: '', dueDate: '', priority: 'MEDIUM' });
     setCreateInOtherCities(false);
-    setExtraCityIds(['']);
+    setExtraEntries([]);
   };
 
   const handleStatusChange = async (taskId: string, status: string) => {
@@ -483,37 +553,26 @@ export default function TasksPage() {
                         checked={createInOtherCities}
                         onChange={e => {
                           setCreateInOtherCities(e.target.checked);
-                          if (!e.target.checked) setExtraCityIds(['']);
+                          if (!e.target.checked) setExtraEntries([]);
                         }}
                         className="w-4 h-4 rounded accent-primary-500"
                       />
                       <div>
                         <p className="text-sm text-white font-medium">Criar esta task em outra cidade também</p>
-                        <p className="text-xs text-gray-400">A task será criada simultaneamente em cada cidade selecionada</p>
+                        <p className="text-xs text-gray-400">
+                          Selecione a cidade e o funcionário responsável em cada cidade extra
+                        </p>
                       </div>
                     </label>
 
                     {createInOtherCities && (
-                      <div className="pl-7">
-                        <p className="text-xs text-gray-400 mb-2">Selecione a(s) cidade(s):</p>
-                        <ExtraCitySelector
+                      <div>
+                        <ExtraEntriesManager
                           currentCityId={cityId!}
                           availableCities={availableCities}
-                          selected={extraCityIds}
-                          onChange={setExtraCityIds}
+                          entries={extraEntries}
+                          onChange={setExtraEntries}
                         />
-                        {extraCityIds.filter(Boolean).length > 0 && (
-                          <div className="mt-2 flex flex-wrap gap-1.5">
-                            {extraCityIds.filter(Boolean).map(id => {
-                              const c = availableCities.find(cc => cc.id === id);
-                              return c ? (
-                                <span key={id} className="text-xs bg-primary-500/20 text-primary-300 px-2 py-0.5 rounded-full">
-                                  🏙️ {c.name}
-                                </span>
-                              ) : null;
-                            })}
-                          </div>
-                        )}
                       </div>
                     )}
                   </div>
@@ -527,8 +586,8 @@ export default function TasksPage() {
                   >Cancelar</button>
                   <button type="submit" disabled={isSubmitting} className="btn-primary flex-1">
                     {isSubmitting ? 'Criando...' : (
-                      createInOtherCities && extraCityIds.filter(Boolean).length > 0
-                        ? `Criar em ${1 + extraCityIds.filter(Boolean).length} cidade${1 + extraCityIds.filter(Boolean).length > 1 ? 's' : ''}`
+                      createInOtherCities && extraEntries.filter(e => e.cityId).length > 0
+                        ? `Criar em ${1 + extraEntries.filter(e => e.cityId).length} cidade${1 + extraEntries.filter(e => e.cityId).length > 1 ? 's' : ''}`
                         : 'Criar Task'
                     )}
                   </button>
