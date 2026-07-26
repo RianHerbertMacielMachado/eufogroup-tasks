@@ -66,17 +66,17 @@ app.use('/api/cities/:cityId/employees', employeeRoutes);
 app.use('/api/admin/users', userRoutes);
 
 // Servir frontend em produção
-if (process.env.NODE_ENV === 'production') {
-  const frontendPath = path.join(__dirname, '../../frontend/dist');
-  if (fs.existsSync(frontendPath)) {
-    app.use(express.static(frontendPath));
-    app.get('*', (req, res) => {
-      res.sendFile(path.join(frontendPath, 'index.html'));
-    });
-  }
+// O Dockerfile copia o build do frontend para /app/public
+const frontendPath = path.join(process.cwd(), 'public');
+if (fs.existsSync(frontendPath)) {
+  app.use(express.static(frontendPath));
+  // SPA fallback — todas as rotas não-API servem o index.html
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(frontendPath, 'index.html'));
+  });
 }
 
-// 404 handler
+// 404 handler (só alcançado se frontendPath não existir)
 app.use((req, res) => {
   res.status(404).json({ success: false, error: 'Rota não encontrada' });
 });
