@@ -109,7 +109,7 @@ model Task {
   cityId      String     // ⭐ Isolamento Multi-Tenant
   createdById String?
 
-  employee    Employee   @relation(fields: [employeeId], references: [id])
+  employee    Employee   @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   city        City       @relation(fields: [cityId], references: [id], onDelete: Cascade)
 
   @@map("tasks")
@@ -129,7 +129,7 @@ model Event {
   cityId      String   // ⭐ Isolamento Multi-Tenant
   createdById String?
 
-  employee    Employee @relation(fields: [employeeId], references: [id])
+  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   city        City     @relation(fields: [cityId], references: [id], onDelete: Cascade)
 
   @@map("events")

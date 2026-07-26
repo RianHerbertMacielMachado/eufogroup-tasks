@@ -134,11 +134,11 @@ export const deleteEmployee = async (req: AuthenticatedRequest, res: Response): 
       return;
     }
 
-    // Soft delete
-    await prisma.employee.update({ where: { id: employeeId }, data: { isActive: false } });
-    res.json({ success: true, message: 'Funcionário desativado com sucesso' });
+    // Hard delete — tasks e events vinculados são deletados em cascata (onDelete: Cascade no schema)
+    await prisma.employee.delete({ where: { id: employeeId } });
+    res.json({ success: true, message: 'Funcionário excluído com sucesso' });
   } catch (error) {
     console.error('Delete employee error:', error);
-    res.status(500).json({ success: false, error: 'Erro ao desativar funcionário' });
+    res.status(500).json({ success: false, error: 'Erro ao excluir funcionário' });
   }
 };
