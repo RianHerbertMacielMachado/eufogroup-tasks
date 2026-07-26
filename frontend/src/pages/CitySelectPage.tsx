@@ -140,7 +140,7 @@ export default function CitySelectPage() {
               <span className="text-xl">🎯</span>
             </div>
             <div>
-              <h1 className="text-white font-bold text-lg drop-shadow">Eufogrup Tasks</h1>
+              <h1 className="text-white font-bold text-lg drop-shadow">Eufogroup Tasks</h1>
               <p className="text-gray-300 text-xs">Sistema de Gestão Multi-Cidade</p>
             </div>
           </div>

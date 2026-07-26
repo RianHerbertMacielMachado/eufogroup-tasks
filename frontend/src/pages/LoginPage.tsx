@@ -121,7 +121,7 @@ export default function LoginPage() {
           <div className="inline-flex items-center justify-center w-20 h-20 bg-primary-500/20 rounded-full border border-primary-400/30 mb-4 backdrop-blur-sm">
             <span className="text-4xl">🎯</span>
           </div>
-          <h1 className="text-3xl font-bold text-white mb-2 drop-shadow-lg">Eufogrup</h1>
+          <h1 className="text-3xl font-bold text-white mb-2 drop-shadow-lg">Eufogroup</h1>
           <p className="text-gray-300 drop-shadow">Sistema de Gestão de Tasks</p>
         </div>
 
@@ -170,7 +170,7 @@ export default function LoginPage() {
         </div>
 
         <p className="text-center text-gray-400 text-sm mt-6">
-          Eufogrup Tasks v1.0 • Multi-Tenant
+          Eufogroup Tasks v1.0 • Multi-Tenant
         </p>
       </div>
     </div>

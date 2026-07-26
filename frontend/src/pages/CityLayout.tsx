@@ -68,7 +68,7 @@ export default function CityLayout() {
             <div className="flex items-center gap-2 overflow-hidden">
               <span className="text-xl">🎯</span>
               <div>
-                <p className="text-white font-bold text-sm truncate">Eufogrup</p>
+                <p className="text-white font-bold text-sm truncate">Eufogroup</p>
                 <p className="text-primary-400 text-xs truncate font-medium">
                   {currentCity?.name || 'Sem cidade'}
                 </p>
@@ -158,7 +158,7 @@ export default function CityLayout() {
             </button>
             <div>
               <h1 className="text-white font-semibold text-sm">
-                {currentCity?.name || 'Eufogrup Tasks'}
+                {currentCity?.name || 'Eufogroup Tasks'}
               </h1>
               <p className="text-gray-500 text-xs">Ambiente Isolado • Multi-Tenant</p>
             </div>

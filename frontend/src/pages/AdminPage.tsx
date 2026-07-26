@@ -108,10 +108,10 @@ function CityBgModal({
           <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-3 mb-5">
             <p className="text-blue-300 text-xs font-medium mb-1">📐 Tamanho recomendado</p>
             <p className="text-blue-200 text-xs">
-              <strong>1920 × 1080 px</strong> (Full HD, 16:9) • Formatos: JPG, PNG, WebP • Máx. 10MB por imagem
+              <strong>1920 × 1080 px</strong> (Full HD, 16:9) • Formatos: JPG, PNG, WebP, GIF • Máx. 20MB por arquivo
             </p>
             <p className="text-blue-300/70 text-xs mt-1">
-              1 imagem → modo estático &nbsp;|&nbsp; 2+ imagens → carrossel automático
+              1 imagem/GIF → modo estático &nbsp;|&nbsp; 2+ imagens → carrossel automático
             </p>
           </div>
 
@@ -175,12 +175,12 @@ function CityBgModal({
             onClick={() => inputRef.current?.click()}
           >
             <div className="text-3xl mb-2">📁</div>
-            <p className="text-gray-300 text-sm">Clique para adicionar imagens</p>
-            <p className="text-gray-500 text-xs mt-1">JPG, PNG ou WebP • Máx. 10MB cada</p>
+            <p className="text-gray-300 text-sm">Clique para adicionar imagens ou GIFs</p>
+            <p className="text-gray-500 text-xs mt-1">JPG, PNG, WebP ou GIF • Máx. 20MB cada</p>
             <input
               ref={inputRef}
               type="file"
-              accept="image/*"
+              accept="image/*,.gif"
               multiple
               className="hidden"
               onChange={e => handleFiles(e.target.files)}
@@ -313,10 +313,10 @@ function GlobalBgModal({
           <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-3 mb-5">
             <p className="text-blue-300 text-xs font-medium mb-1">📐 Tamanho recomendado</p>
             <p className="text-blue-200 text-xs">
-              <strong>1920 × 1080 px</strong> (Full HD, 16:9) • Formatos: JPG, PNG, WebP • Máx. 10MB por imagem
+              <strong>1920 × 1080 px</strong> (Full HD, 16:9) • Formatos: JPG, PNG, WebP, GIF • Máx. 20MB por arquivo
             </p>
             <p className="text-blue-300/70 text-xs mt-1">
-              1 imagem → fundo estático &nbsp;|&nbsp; 2+ imagens → carrossel automático na tela
+              1 imagem/GIF → fundo estático &nbsp;|&nbsp; 2+ imagens → carrossel automático na tela
             </p>
           </div>
 
@@ -365,7 +365,7 @@ function GlobalBgModal({
             <div className="text-3xl mb-2">📁</div>
             <p className="text-gray-300 text-sm">Clique para adicionar imagens</p>
             <p className="text-gray-500 text-xs mt-1">JPG, PNG ou WebP • Máx. 10MB cada</p>
-            <input ref={inputRef} type="file" accept="image/*" multiple className="hidden" onChange={e => handleFiles(e.target.files)} />
+            <input ref={inputRef} type="file" accept="image/*,.gif" multiple className="hidden" onChange={e => handleFiles(e.target.files)} />
           </div>
 
           {totalImages >= 2 && (

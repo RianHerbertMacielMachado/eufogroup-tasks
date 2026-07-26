@@ -27,7 +27,7 @@ const upload = multer({
       cb(new Error('Apenas imagens são permitidas'));
     }
   },
-  limits: { fileSize: 10 * 1024 * 1024 }
+  limits: { fileSize: 20 * 1024 * 1024 } // 20MB (suporta GIFs animados)
 });
 
 // Rota pública: frontend busca backgrounds sem autenticação

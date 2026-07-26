@@ -30,7 +30,7 @@ const upload = multer({
       cb(new Error('Apenas imagens são permitidas'));
     }
   },
-  limits: { fileSize: 10 * 1024 * 1024 } // 10MB
+  limits: { fileSize: 20 * 1024 * 1024 } // 20MB (suporta GIFs animados)
 });
 
 // Rotas públicas (lista de cidades para tela inicial)
