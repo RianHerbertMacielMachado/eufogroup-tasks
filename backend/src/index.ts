@@ -52,23 +52,7 @@ const authLimiter = rateLimit({
   message: { success: false, error: 'Muitas tentativas de login. Tente novamente em 15 minutos.' }
 });
 
-// Health check e raiz
-app.get('/', (req, res) => {
-  res.json({ 
-    success: true, 
-    message: 'API Eufogrup Tasks rodando',
-    endpoints: {
-      health: '/health',
-      auth: '/api/auth',
-      cities: '/api/cities',
-      tasks: '/api/cities/:cityId/tasks',
-      events: '/api/cities/:cityId/events',
-      employees: '/api/cities/:cityId/employees',
-      users: '/api/admin/users'
-    }
-  });
-});
-
+// Health check
 app.get('/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString(), timezone: 'America/Sao_Paulo' });
 });
@@ -110,4 +94,3 @@ app.listen(PORT, () => {
 });
 
 export default app;
-
