@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { AuthenticatedRequest } from '../middleware/auth';
+import { filesToDataUrls } from '../utils/imageStorage';
 
 const prisma = new PrismaClient();
 
@@ -8,26 +9,25 @@ const prisma = new PrismaClient();
 export const getEvents = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const cityId = req.cityId!;
-    const { employeeId, cargo, funcao, month, year, page = '1', limit = '20' } = req.query as Record<string, string>;
+    const { employeeId, cargo, funcao, tipo, month, year, page = '1', limit = '20' } = req.query as Record<string, string>;
 
     const where: Record<string, unknown> = { cityId };
     if (employeeId) where.employeeId = employeeId;
-    if (cargo)      where.cargo = { contains: cargo, mode: 'insensitive' };
+    if (cargo)      where.cargo  = { contains: cargo,  mode: 'insensitive' };
     if (funcao)     where.funcao = { contains: funcao, mode: 'insensitive' };
+    if (tipo && (tipo === 'POSITIVE' || tipo === 'NEGATIVE')) where.tipo = tipo;
 
     // Filtro por mês e/ou ano (baseado em createdAt)
     if (month || year) {
       const now = new Date();
       const y = year  ? parseInt(year)  : now.getFullYear();
-      const m = month ? parseInt(month) : null; // 1-12
+      const m = month ? parseInt(month) : null;
 
       if (m !== null) {
-        // Mês + ano: intervalo exato do mês
         const start = new Date(y, m - 1, 1, 0, 0, 0, 0);
-        const end   = new Date(y, m,     1, 0, 0, 0, 0); // primeiro dia do próximo mês
+        const end   = new Date(y, m,     1, 0, 0, 0, 0);
         where.createdAt = { gte: start, lt: end };
       } else {
-        // Só ano: intervalo do ano inteiro
         const start = new Date(y,     0, 1, 0, 0, 0, 0);
         const end   = new Date(y + 1, 0, 1, 0, 0, 0, 0);
         where.createdAt = { gte: start, lt: end };
@@ -53,12 +53,7 @@ export const getEvents = async (req: AuthenticatedRequest, res: Response): Promi
       success: true,
       data: {
         events,
-        pagination: {
-          total,
-          page: parseInt(page),
-          limit: parseInt(limit),
-          pages: Math.ceil(total / parseInt(limit))
-        }
+        pagination: { total, page: parseInt(page), limit: parseInt(limit), pages: Math.ceil(total / parseInt(limit)) }
       }
     });
   } catch (error) {
@@ -68,42 +63,43 @@ export const getEvents = async (req: AuthenticatedRequest, res: Response): Promi
 };
 
 // ─── POST /cities/:cityId/events ─────────────────────────────────────────────
-// Accepts multipart/form-data (multer) or JSON
 export const createEvent = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const cityId = req.cityId!;
-    const { description, employeeId, cargo, funcao, link } = req.body;
+    const { description, employeeId, cargo, funcao, link, tipo } = req.body;
 
     if (!description || !employeeId) {
       res.status(400).json({ success: false, error: 'Descrição e funcionário são obrigatórios' });
       return;
     }
 
-    // Verificar se o funcionário pertence à cidade
-    const employee = await prisma.employee.findFirst({
-      where: { id: employeeId, cityId } // ⭐ Isolamento
-    });
-
+    const employee = await prisma.employee.findFirst({ where: { id: employeeId, cityId } });
     if (!employee) {
       res.status(404).json({ success: false, error: 'Funcionário não encontrado nesta cidade' });
       return;
     }
 
-    // Processar imagens enviadas via multer
+    // Imagens convertidas para base64 (memoryStorage — não dependem do filesystem)
     const uploadedFiles = (req.files as Express.Multer.File[]) || [];
-    const imageUrls = uploadedFiles.map(f => `/uploads/${f.filename}`);
+    const imageDataUrls = filesToDataUrls(uploadedFiles);
 
-    // ⭐ Data/hora gerada pelo servidor (UTC-3), imutável após criação
+    const tipoFeedback = (tipo === 'NEGATIVE') ? 'NEGATIVE' : 'POSITIVE';
+
     const event = await prisma.event.create({
       data: {
         description,
         employeeId,
         cityId,
-        cargo: cargo || employee.cargo,
-        funcao: funcao || employee.funcao || '',
-        link: link || null,
-        images: imageUrls,
-        createdById: req.user?.userId
+        tipo:             tipoFeedback,
+        cargo:            cargo  || employee.cargo,
+        funcao:           funcao || employee.funcao || '',
+        link:             link?.trim() || null,
+        images:           imageDataUrls,
+        // Snapshot preenchido na criação
+        employeeSnapshot: employee.name,
+        cargoSnapshot:    employee.cargo,
+        funcaoSnapshot:   employee.funcao,
+        createdById:      req.user?.userId
       },
       include: {
         employee: { select: { id: true, name: true, cargo: true, funcao: true } }
@@ -122,7 +118,7 @@ export const updateEvent = async (req: AuthenticatedRequest, res: Response): Pro
   try {
     const cityId = req.cityId!;
     const { eventId } = req.params;
-    const { description, link } = req.body;
+    const { description, link, tipo } = req.body;
 
     const existing = await prisma.event.findFirst({ where: { id: eventId, cityId } });
     if (!existing) {
@@ -130,33 +126,32 @@ export const updateEvent = async (req: AuthenticatedRequest, res: Response): Pro
       return;
     }
 
-    // Processar novas imagens enviadas
+    // Novas imagens em base64
     const uploadedFiles = (req.files as Express.Multer.File[]) || [];
-    const newImageUrls = uploadedFiles.map(f => `/uploads/${f.filename}`);
+    const newImageDataUrls = filesToDataUrls(uploadedFiles);
 
-    // Parse imagens mantidas (enviadas como JSON string no body)
+    // Parse imagens mantidas
     let keptImages: string[] = [];
     if (req.body.keptImages) {
-      try {
-        keptImages = JSON.parse(req.body.keptImages);
-      } catch {
-        keptImages = existing.images;
-      }
+      try { keptImages = JSON.parse(req.body.keptImages); }
+      catch { keptImages = existing.images; }
     } else {
-      // Se não veio keptImages, mantém todas as existentes
       keptImages = existing.images;
     }
 
-    const allImages = [...keptImages, ...newImageUrls];
+    const allImages = [...keptImages, ...newImageDataUrls];
+
+    const updateData: Record<string, unknown> = {
+      images: allImages,
+      // link: string vazia → null (remove o link)
+      link: (link !== undefined) ? (link.trim() || null) : existing.link
+    };
+    if (description !== undefined) updateData.description = description;
+    if (tipo === 'POSITIVE' || tipo === 'NEGATIVE') updateData.tipo = tipo;
 
     const updated = await prisma.event.update({
       where: { id: eventId },
-      data: {
-        ...(description !== undefined && { description }),
-        // Sempre atualiza link: string vazia ou undefined → null (remove o link)
-        link: (link !== undefined) ? (link.trim() || null) : existing.link,
-        images: allImages
-      },
+      data: updateData,
       include: {
         employee: { select: { id: true, name: true, cargo: true, funcao: true } }
       }
@@ -190,35 +185,19 @@ export const deleteEvent = async (req: AuthenticatedRequest, res: Response): Pro
 };
 
 // ─── GET /cities/:cityId/events/filter-options ───────────────────────────────
-// Retorna valores únicos de cargo e funcao — combinando eventos existentes
-// com employees ativos (para que novos registros também apareçam como opção)
 export const getEventFilterOptions = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const cityId = req.cityId!;
 
-    // Valores que já existem em eventos gravados
-    const existingEvents = await prisma.event.findMany({
-      where: { cityId },
-      select: { cargo: true, funcao: true }
-    });
+    const [existingEvents, employees] = await Promise.all([
+      prisma.event.findMany({ where: { cityId }, select: { cargo: true, funcao: true } }),
+      prisma.employee.findMany({ where: { cityId }, select: { cargo: true, funcao: true } })
+    ]);
 
-    // Valores dos employees ativos (para opções futuras)
-    const employees = await prisma.employee.findMany({
-      where: { cityId, isActive: true },
-      select: { cargo: true, funcao: true }
-    });
+    const allCargos  = [...existingEvents.map(e => e.cargo),  ...employees.map(e => e.cargo)];
+    const allFuncoes = [...existingEvents.map(e => e.funcao), ...employees.map(e => e.funcao)];
 
-    // União: garante que filtramos apenas valores não-vazios
-    const allCargos = [
-      ...existingEvents.map(e => e.cargo),
-      ...employees.map(e => e.cargo)
-    ];
-    const allFuncoes = [
-      ...existingEvents.map(e => e.funcao),
-      ...employees.map(e => e.funcao)
-    ];
-
-    const cargos = [...new Set(allCargos.filter(v => v && v.trim() !== ''))].sort();
+    const cargos  = [...new Set(allCargos.filter(v  => v && v.trim() !== ''))].sort();
     const funcoes = [...new Set(allFuncoes.filter(v => v && v.trim() !== ''))].sort();
 
     res.json({ success: true, data: { cargos, funcoes } });

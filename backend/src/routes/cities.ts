@@ -1,37 +1,12 @@
 import { Router } from 'express';
-import multer from 'multer';
-import path from 'path';
-import { v4 as uuidv4 } from 'uuid';
 import {
   getCities, getCityById, createCity, updateCity, deleteCity,
   uploadCityBackground, deleteCityBackground, getCityBackgrounds, getDashboard
 } from '../controllers/cityController';
 import { authenticate, requireAdmin, requireSuperAdmin, validateCityAccess } from '../middleware/auth';
+import memoryUpload from '../utils/memoryUpload';
 
 const router = Router();
-
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, path.join(process.cwd(), 'uploads'));
-  },
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname);
-    cb(null, `${uuidv4()}${ext}`);
-  }
-});
-
-const upload = multer({
-  storage,
-  fileFilter: (req, file, cb) => {
-    const allowed = /\.(jpg|jpeg|png|gif|webp)$/i;
-    if (allowed.test(file.originalname)) {
-      cb(null, true);
-    } else {
-      cb(new Error('Apenas imagens são permitidas'));
-    }
-  },
-  limits: { fileSize: 20 * 1024 * 1024 } // 20MB (suporta GIFs animados)
-});
 
 // Rotas públicas (lista de cidades para tela inicial)
 router.get('/', getCities);
@@ -47,7 +22,7 @@ router.post('/', requireAdmin, createCity);
 router.put('/:cityId', requireAdmin, updateCity);
 router.delete('/:cityId', requireSuperAdmin, deleteCity);
 router.get('/:cityId/backgrounds', requireAdmin, getCityBackgrounds);
-router.post('/:cityId/backgrounds', requireAdmin, upload.array('images', 10), uploadCityBackground);
+router.post('/:cityId/backgrounds', requireAdmin, memoryUpload.array('images', 10), uploadCityBackground);
 router.delete('/:cityId/backgrounds/:bgId', requireAdmin, deleteCityBackground);
 
 export default router;

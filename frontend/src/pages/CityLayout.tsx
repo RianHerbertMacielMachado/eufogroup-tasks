@@ -10,6 +10,7 @@ const menuItems = [
   { id: 'events', icon: '📝', label: 'Registro de Feedback', path: 'events' },
   { id: 'completed', icon: '✅', label: 'Tasks Concluídas', path: 'tasks?status=COMPLETED' },
   { id: 'cancelled', icon: '❌', label: 'Tasks Canceladas', path: 'tasks?status=CANCELLED' },
+  { id: 'reports', icon: '📈', label: 'Relatório', path: 'reports' },
   { id: 'team', icon: '👥', label: 'Cadastro de Equipe', path: 'team' },
 ];
 

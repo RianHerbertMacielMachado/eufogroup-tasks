@@ -134,7 +134,27 @@ export const deleteEmployee = async (req: AuthenticatedRequest, res: Response): 
       return;
     }
 
-    // Hard delete — tasks e events vinculados são deletados em cascata (onDelete: Cascade no schema)
+    // Salvar snapshot do nome/cargo/funcao em tasks e events ANTES de deletar
+    // Assim os registros preservam o nome mesmo com employeeId = null
+    await prisma.task.updateMany({
+      where: { employeeId },
+      data: {
+        employeeSnapshot: employee.name,
+        cargoSnapshot:    employee.cargo,
+        funcaoSnapshot:   employee.funcao
+      }
+    });
+
+    await prisma.event.updateMany({
+      where: { employeeId },
+      data: {
+        employeeSnapshot: employee.name,
+        cargoSnapshot:    employee.cargo,
+        funcaoSnapshot:   employee.funcao
+      }
+    });
+
+    // Hard delete — employeeId em tasks/events vira null via onDelete: SetNull
     await prisma.employee.delete({ where: { id: employeeId } });
     res.json({ success: true, message: 'Funcionário excluído com sucesso' });
   } catch (error) {

@@ -47,8 +47,11 @@ export interface Task {
   priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
   dueDate: string;
   cityId: string;
-  employeeId: string;
-  employee?: Pick<Employee, 'id' | 'name' | 'cargo' | 'funcao'>;
+  employeeId?: string | null;
+  employee?: Pick<Employee, 'id' | 'name' | 'cargo' | 'funcao'> | null;
+  employeeSnapshot?: string; // nome preservado após delete do funcionário
+  cargoSnapshot?: string;
+  funcaoSnapshot?: string;
   cancelReason?: string;
   cancelledBy?: string;
   completedAt?: string;
@@ -60,13 +63,17 @@ export interface Task {
 export interface Event {
   id: string;
   description: string;
+  tipo: 'POSITIVE' | 'NEGATIVE';
   cargo: string;
   funcao: string;
   link?: string;
   images: string[];
   cityId: string;
-  employeeId: string;
-  employee?: Pick<Employee, 'id' | 'name' | 'cargo' | 'funcao'>;
+  employeeId?: string | null;
+  employee?: Pick<Employee, 'id' | 'name' | 'cargo' | 'funcao'> | null;
+  employeeSnapshot?: string; // nome preservado após delete do funcionário
+  cargoSnapshot?: string;
+  funcaoSnapshot?: string;
   createdAt: string;
   updatedAt: string;
 }

@@ -1,8 +1,7 @@
 import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { AuthenticatedRequest } from '../middleware/auth';
-import path from 'path';
-import fs from 'fs';
+import { filesToDataUrls } from '../utils/imageStorage';
 
 const prisma = new PrismaClient();
 
@@ -122,8 +121,7 @@ export const uploadCityBackground = async (req: AuthenticatedRequest, res: Respo
   try {
     const { cityId } = req.params;
     const files = req.files as Express.Multer.File[];
-    const file = req.file as Express.Multer.File;
-
+    const file  = req.file  as Express.Multer.File;
     const uploadedFiles = files || (file ? [file] : []);
 
     if (!uploadedFiles || uploadedFiles.length === 0) {
@@ -137,23 +135,15 @@ export const uploadCityBackground = async (req: AuthenticatedRequest, res: Respo
       return;
     }
 
-    // Delete old backgrounds
-    const oldBgs = await prisma.cityBackground.findMany({ where: { cityId } });
-    for (const bg of oldBgs) {
-      const filePath = path.join(process.cwd(), 'uploads', path.basename(bg.imageUrl));
-      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-    }
+    // Remove backgrounds antigos (só do banco — não há arquivos em disco)
     await prisma.cityBackground.deleteMany({ where: { cityId } });
 
-    // Create new backgrounds
+    // Converter imagens para base64 e salvar no banco
+    const dataUrls = filesToDataUrls(uploadedFiles);
     const backgrounds = await Promise.all(
-      uploadedFiles.map((f, index) =>
+      dataUrls.map((dataUrl, index) =>
         prisma.cityBackground.create({
-          data: {
-            cityId,
-            imageUrl: `/uploads/${f.filename}`,
-            order: index
-          }
+          data: { cityId, imageUrl: dataUrl, order: index }
         })
       )
     );
@@ -178,13 +168,9 @@ export const deleteCityBackground = async (req: AuthenticatedRequest, res: Respo
       return;
     }
 
-    // Remove arquivo físico
-    const filePath = path.join(process.cwd(), 'uploads', path.basename(bg.imageUrl));
-    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-
+    // Remove apenas do banco (sem arquivo em disco)
     await prisma.cityBackground.delete({ where: { id: bgId } });
 
-    // Atualiza backgroundMode após remoção
     const remaining = await prisma.cityBackground.count({ where: { cityId } });
     const newMode = remaining > 1 ? 'CAROUSEL' : 'STATIC';
     await prisma.city.update({ where: { id: cityId }, data: { backgroundMode: newMode as 'STATIC' | 'CAROUSEL' } });

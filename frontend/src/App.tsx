@@ -12,6 +12,7 @@ import TasksPage from './pages/TasksPage';
 import EventsPage from './pages/EventsPage';
 import TeamPage from './pages/TeamPage';
 import AdminPage from './pages/AdminPage';
+import ReportsPage from './pages/ReportsPage';
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, isLoading } = useAuth();
@@ -59,6 +60,7 @@ function AppRoutes() {
         <Route path="dashboard" element={<DashboardPage />} />
         <Route path="tasks" element={<TasksPage />} />
         <Route path="events" element={<EventsPage />} />
+        <Route path="reports" element={<ReportsPage />} />
         <Route path="team" element={<TeamPage />} />
       </Route>
       

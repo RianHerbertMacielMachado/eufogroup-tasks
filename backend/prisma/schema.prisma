@@ -92,18 +92,23 @@ model Employee {
 }
 
 model Task {
-  id          String     @id @default(cuid())
-  title       String
-  description String
-  status      TaskStatus @default(PENDING)
-  priority    Priority   @default(MEDIUM)
-  dueDate     DateTime
-  cancelReason String?
-  cancelledBy String?
-  completedAt DateTime?
-  cancelledAt DateTime?
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  id               String     @id @default(cuid())
+  title            String
+  description      String
+  status           TaskStatus @default(PENDING)
+  priority         Priority   @default(MEDIUM)
+  dueDate          DateTime
+  cancelReason     String?
+  cancelledBy      String?
+  completedAt      DateTime?
+  cancelledAt      DateTime?
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+
+  // Snapshot do funcionário — preenchido na criação e ao deletar o funcionário
+  employeeSnapshot String     @default("") // nome do funcionário
+  cargoSnapshot    String     @default("") // cargo no momento
+  funcaoSnapshot   String     @default("") // função no momento
 
   employeeId  String?    // nullable: permite deletar funcionário sem perder a task
   cityId      String     // ⭐ Isolamento Multi-Tenant
@@ -116,14 +121,20 @@ model Task {
 }
 
 model Event {
-  id          String   @id @default(cuid())
-  description String
-  cargo       String
-  funcao      String   @default("")
-  link        String?
-  images      String[]
-  createdAt   DateTime @default(now()) // ⭐ Imutável após criação
-  updatedAt   DateTime @updatedAt
+  id               String        @id @default(cuid())
+  description      String
+  tipo             FeedbackTipo  @default(POSITIVE) // positivo ou negativo
+  cargo            String
+  funcao           String        @default("")
+  link             String?
+  images           String[]
+  createdAt        DateTime      @default(now()) // ⭐ Imutável após criação
+  updatedAt        DateTime      @updatedAt
+
+  // Snapshot do funcionário — preenchido na criação e ao deletar o funcionário
+  employeeSnapshot String        @default("") // nome do funcionário
+  cargoSnapshot    String        @default("") // cargo no momento
+  funcaoSnapshot   String        @default("") // função no momento
 
   employeeId  String?  // nullable: permite deletar funcionário sem perder o feedback
   cityId      String   // ⭐ Isolamento Multi-Tenant
@@ -153,6 +164,11 @@ enum Priority {
   MEDIUM
   HIGH
   URGENT
+}
+
+enum FeedbackTipo {
+  POSITIVE
+  NEGATIVE
 }
 
 enum BgMode {
