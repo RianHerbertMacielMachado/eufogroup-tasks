@@ -119,7 +119,11 @@ model Event {
   id          String   @id @default(cuid())
   description String
   cargo       String
+  funcao      String   @default("")
+  link        String?
+  images      String[]
   createdAt   DateTime @default(now()) // ⭐ Imutável após criação
+  updatedAt   DateTime @updatedAt
 
   employeeId  String
   cityId      String   // ⭐ Isolamento Multi-Tenant

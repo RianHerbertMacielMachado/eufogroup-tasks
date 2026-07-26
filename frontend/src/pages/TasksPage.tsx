@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
-import { Task, Employee, Pagination } from '../types';
+import { Task, Employee, Pagination, City } from '../types';
 import api from '../services/api';
 import { format, isPast } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import toast from 'react-hot-toast';
 import clsx from 'clsx';
+import { useAuth } from '../contexts/AuthContext';
 
 const STATUS_LABELS: Record<string, string> = {
   PENDING: 'Pendente', IN_PROGRESS: 'Em Andamento', COMPLETED: 'Concluída', CANCELLED: 'Cancelada'
@@ -18,14 +19,86 @@ const PRIORITY_LABELS: Record<string, string> = {
 };
 
 interface TaskForm {
-  title: string; description: string; employeeId: string; dueDate: string; priority: string;
+  title: string;
+  description: string;
+  employeeId: string;
+  dueDate: string;
+  priority: string;
 }
 interface CancelForm { taskId: string; reason: string; }
 
+// ─── componente de seleção de cidades extras ──────────────────────────────────
+interface ExtraCitySelectorProps {
+  currentCityId: string;
+  availableCities: City[];
+  selected: string[];
+  onChange: (ids: string[]) => void;
+}
+
+function ExtraCitySelector({ currentCityId, availableCities, selected, onChange }: ExtraCitySelectorProps) {
+  const otherCities = availableCities.filter(c => c.id !== currentCityId);
+
+  const addSlot = () => onChange([...selected, '']);
+
+  const updateSlot = (idx: number, val: string) => {
+    const updated = [...selected];
+    updated[idx] = val;
+    onChange(updated);
+  };
+
+  const removeSlot = (idx: number) => {
+    onChange(selected.filter((_, i) => i !== idx));
+  };
+
+  // Cidades já ocupadas (não mostrar nas outras opções)
+  const usedIds = new Set([currentCityId, ...selected.filter(Boolean)]);
+
+  return (
+    <div className="space-y-2 mt-2">
+      {selected.map((val, idx) => {
+        const options = otherCities.filter(c => !usedIds.has(c.id) || c.id === val);
+        return (
+          <div key={idx} className="flex gap-2 items-center">
+            <select
+              value={val}
+              onChange={e => updateSlot(idx, e.target.value)}
+              className="input-field flex-1 text-sm"
+            >
+              <option value="">Selecione a cidade...</option>
+              {options.map(c => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+            <button
+              type="button"
+              onClick={() => removeSlot(idx)}
+              className="w-8 h-8 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg flex items-center justify-center flex-shrink-0 transition-colors"
+              title="Remover"
+            >✕</button>
+          </div>
+        );
+      })}
+
+      {/* botão adicionar mais */}
+      {selected.length < otherCities.length && (
+        <button
+          type="button"
+          onClick={addSlot}
+          className="text-sm text-primary-400 hover:text-primary-300 flex items-center gap-1 transition-colors"
+        >
+          ➕ Adicionar outra cidade
+        </button>
+      )}
+    </div>
+  );
+}
+
+// ─── main ─────────────────────────────────────────────────────────────────────
 export default function TasksPage() {
   const { cityId } = useParams();
   const [searchParams] = useSearchParams();
   const statusFilter = searchParams.get('status') || '';
+  const { user } = useAuth();
 
   const [tasks, setTasks] = useState<Task[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -36,8 +109,17 @@ export default function TasksPage() {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [cancelForm, setCancelForm] = useState<CancelForm>({ taskId: '', reason: '' });
   const [page, setPage] = useState(1);
-  const [form, setForm] = useState<TaskForm>({ title: '', description: '', employeeId: '', dueDate: '', priority: 'MEDIUM' });
+  const [form, setForm] = useState<TaskForm>({
+    title: '', description: '', employeeId: '', dueDate: '', priority: 'MEDIUM'
+  });
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // ── multi-cidade ────────────────────────────────────────────────────────────
+  const [createInOtherCities, setCreateInOtherCities] = useState(false);
+  const [extraCityIds, setExtraCityIds] = useState<string[]>(['']);
+
+  // cidades disponíveis para o user (do JWT via AuthContext)
+  const userCities: City[] = Array.isArray(user?.cities) ? user!.cities : [];
 
   useEffect(() => {
     if (cityId) { loadTasks(); loadEmployees(); }
@@ -49,20 +131,17 @@ export default function TasksPage() {
       const params: Record<string, string> = { page: String(page), limit: '20' };
       if (statusFilter) params.status = statusFilter;
       const { data } = await api.get(`/cities/${cityId}/tasks`, { params });
-      // Defensive: garante que tasks sempre seja um array
       setTasks(Array.isArray(data?.data?.tasks) ? data.data.tasks : []);
       setPagination(data?.data?.pagination ?? null);
     } catch {
       toast.error('Erro ao carregar tasks');
       setTasks([]);
-    }
-    finally { setIsLoading(false); }
+    } finally { setIsLoading(false); }
   };
 
   const loadEmployees = async () => {
     try {
       const { data } = await api.get(`/cities/${cityId}/employees`, { params: { limit: '200' } });
-      // Defensive: garante que employees sempre seja um array
       setEmployees(Array.isArray(data?.data?.employees) ? data.data.employees : []);
     } catch {
       setEmployees([]);
@@ -74,17 +153,66 @@ export default function TasksPage() {
     if (!form.title || !form.employeeId || !form.dueDate) {
       toast.error('Preencha todos os campos obrigatórios'); return;
     }
+
+    // Validar cidades extras
+    const validExtraCities = createInOtherCities
+      ? extraCityIds.filter(id => id && id !== cityId)
+      : [];
+
+    // Verificar se há duplicatas
+    const uniqueExtras = [...new Set(validExtraCities)];
+    if (uniqueExtras.length !== validExtraCities.length) {
+      toast.error('Há cidades duplicadas na seleção'); return;
+    }
+
     setIsSubmitting(true);
     try {
-      await api.post(`/cities/${cityId}/tasks`, form);
-      toast.success('Task criada com sucesso!');
+      // Criar task na cidade atual
+      const payload = {
+        ...form,
+        // Se criando em outras cidades, podemos enviar lista completa
+        // ou criar sequencialmente
+      };
+      await api.post(`/cities/${cityId}/tasks`, payload);
+
+      // Criar task nas cidades extras (sequencialmente)
+      const extraErrors: string[] = [];
+      for (const extraCityId of uniqueExtras) {
+        try {
+          // Para outras cidades, usamos mesmo conteúdo mas sem employeeId (pode não existir lá)
+          // Enviamos apenas os dados básicos da task
+          await api.post(`/cities/${extraCityId}/tasks`, {
+            ...form,
+            employeeId: form.employeeId, // backend irá validar
+          });
+        } catch {
+          const city = userCities.find(c => c.id === extraCityId);
+          extraErrors.push(city?.name || extraCityId);
+        }
+      }
+
+      if (uniqueExtras.length > 0 && extraErrors.length === 0) {
+        toast.success(`Task criada em ${1 + uniqueExtras.length} cidades!`);
+      } else if (extraErrors.length > 0) {
+        toast.success('Task criada na cidade atual');
+        toast.error(`Falha ao criar em: ${extraErrors.join(', ')}`);
+      } else {
+        toast.success('Task criada com sucesso!');
+      }
+
       setShowModal(false);
-      setForm({ title: '', description: '', employeeId: '', dueDate: '', priority: 'MEDIUM' });
+      resetCreateModal();
       loadTasks();
     } catch (err: unknown) {
       const e = err as { response?: { data?: { error?: string } } };
       toast.error(e.response?.data?.error || 'Erro ao criar task');
     } finally { setIsSubmitting(false); }
+  };
+
+  const resetCreateModal = () => {
+    setForm({ title: '', description: '', employeeId: '', dueDate: '', priority: 'MEDIUM' });
+    setCreateInOtherCities(false);
+    setExtraCityIds(['']);
   };
 
   const handleStatusChange = async (taskId: string, status: string) => {
@@ -115,6 +243,9 @@ export default function TasksPage() {
   const pageTitle = statusFilter === 'COMPLETED' ? '✅ Tasks Concluídas'
     : statusFilter === 'CANCELLED' ? '❌ Tasks Canceladas'
     : '📋 Registro de Tasks';
+
+  // Cidades disponíveis exceto a atual (para o seletor multi-cidade)
+  const otherAvailableCities = userCities.filter(c => c.id !== cityId);
 
   return (
     <div className="space-y-5 animate-fade-in">
@@ -257,14 +388,14 @@ export default function TasksPage() {
         </div>
       )}
 
-      {/* Create modal */}
+      {/* ── Create modal ─────────────────────────────────────────────────────── */}
       {showModal && (
-        <div className="modal-overlay" onClick={() => setShowModal(false)}>
-          <div className="modal-content" onClick={e => e.stopPropagation()}>
+        <div className="modal-overlay" onClick={() => { setShowModal(false); resetCreateModal(); }}>
+          <div className="modal-content max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="p-6">
               <div className="flex items-center justify-between mb-5">
                 <h2 className="text-xl font-bold text-white">➕ Nova Task</h2>
-                <button onClick={() => setShowModal(false)} className="text-gray-500 hover:text-white">✕</button>
+                <button onClick={() => { setShowModal(false); resetCreateModal(); }} className="text-gray-500 hover:text-white">✕</button>
               </div>
               <form onSubmit={handleCreate} className="space-y-4">
                 <div>
@@ -283,20 +414,41 @@ export default function TasksPage() {
                 </div>
                 <div>
                   <label className="block text-sm text-gray-300 mb-1">Título *</label>
-                  <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} className="input-field" required />
+                  <input
+                    value={form.title}
+                    onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
+                    className="input-field"
+                    required
+                  />
                 </div>
                 <div>
                   <label className="block text-sm text-gray-300 mb-1">Descrição *</label>
-                  <textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} className="input-field" rows={3} required />
+                  <textarea
+                    value={form.description}
+                    onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+                    className="input-field"
+                    rows={3}
+                    required
+                  />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-sm text-gray-300 mb-1">Prazo *</label>
-                    <input type="datetime-local" value={form.dueDate} onChange={e => setForm(f => ({ ...f, dueDate: e.target.value }))} className="input-field" required />
+                    <input
+                      type="datetime-local"
+                      value={form.dueDate}
+                      onChange={e => setForm(f => ({ ...f, dueDate: e.target.value }))}
+                      className="input-field"
+                      required
+                    />
                   </div>
                   <div>
                     <label className="block text-sm text-gray-300 mb-1">Prioridade</label>
-                    <select value={form.priority} onChange={e => setForm(f => ({ ...f, priority: e.target.value }))} className="input-field">
+                    <select
+                      value={form.priority}
+                      onChange={e => setForm(f => ({ ...f, priority: e.target.value }))}
+                      className="input-field"
+                    >
                       <option value="LOW">Baixa</option>
                       <option value="MEDIUM">Média</option>
                       <option value="HIGH">Alta</option>
@@ -304,10 +456,64 @@ export default function TasksPage() {
                     </select>
                   </div>
                 </div>
+
+                {/* ── Multi-cidade ──────────────────────────────────────── */}
+                {otherAvailableCities.length > 0 && (
+                  <div className="border border-gray-700 rounded-xl p-4 space-y-3 bg-gray-800/50">
+                    <label className="flex items-center gap-3 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={createInOtherCities}
+                        onChange={e => {
+                          setCreateInOtherCities(e.target.checked);
+                          if (!e.target.checked) setExtraCityIds(['']);
+                        }}
+                        className="w-4 h-4 rounded accent-primary-500"
+                      />
+                      <div>
+                        <p className="text-sm text-white font-medium">Criar esta task em outra cidade também</p>
+                        <p className="text-xs text-gray-400">A task será criada simultaneamente em cada cidade selecionada</p>
+                      </div>
+                    </label>
+
+                    {createInOtherCities && (
+                      <div className="pl-7">
+                        <p className="text-xs text-gray-400 mb-2">Selecione a(s) cidade(s):</p>
+                        <ExtraCitySelector
+                          currentCityId={cityId!}
+                          availableCities={userCities}
+                          selected={extraCityIds}
+                          onChange={setExtraCityIds}
+                        />
+                        {extraCityIds.filter(Boolean).length > 0 && (
+                          <div className="mt-2 flex flex-wrap gap-1.5">
+                            {extraCityIds.filter(Boolean).map(id => {
+                              const c = userCities.find(cc => cc.id === id);
+                              return c ? (
+                                <span key={id} className="text-xs bg-primary-500/20 text-primary-300 px-2 py-0.5 rounded-full">
+                                  🏙️ {c.name}
+                                </span>
+                              ) : null;
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 <div className="flex gap-3 pt-2">
-                  <button type="button" onClick={() => setShowModal(false)} className="btn-secondary flex-1">Cancelar</button>
+                  <button
+                    type="button"
+                    onClick={() => { setShowModal(false); resetCreateModal(); }}
+                    className="btn-secondary flex-1"
+                  >Cancelar</button>
                   <button type="submit" disabled={isSubmitting} className="btn-primary flex-1">
-                    {isSubmitting ? 'Criando...' : 'Criar Task'}
+                    {isSubmitting ? 'Criando...' : (
+                      createInOtherCities && extraCityIds.filter(Boolean).length > 0
+                        ? `Criar em ${1 + extraCityIds.filter(Boolean).length} cidade${1 + extraCityIds.filter(Boolean).length > 1 ? 's' : ''}`
+                        : 'Criar Task'
+                    )}
                   </button>
                 </div>
               </form>

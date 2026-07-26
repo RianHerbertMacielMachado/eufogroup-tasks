@@ -7,7 +7,7 @@ import clsx from 'clsx';
 const menuItems = [
   { id: 'dashboard', icon: '📊', label: 'Dashboard', path: 'dashboard' },
   { id: 'tasks', icon: '📋', label: 'Registro de Tasks', path: 'tasks' },
-  { id: 'events', icon: '📝', label: 'Registro de Eventos', path: 'events' },
+  { id: 'events', icon: '📝', label: 'Registro de Feedback', path: 'events' },
   { id: 'completed', icon: '✅', label: 'Tasks Concluídas', path: 'tasks?status=COMPLETED' },
   { id: 'cancelled', icon: '❌', label: 'Tasks Canceladas', path: 'tasks?status=CANCELLED' },
   { id: 'team', icon: '👥', label: 'Cadastro de Equipe', path: 'team' },

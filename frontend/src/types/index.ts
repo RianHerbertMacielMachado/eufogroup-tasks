@@ -61,10 +61,14 @@ export interface Event {
   id: string;
   description: string;
   cargo: string;
+  funcao: string;
+  link?: string;
+  images: string[];
   cityId: string;
   employeeId: string;
-  employee?: Pick<Employee, 'id' | 'name' | 'cargo'>;
+  employee?: Pick<Employee, 'id' | 'name' | 'cargo' | 'funcao'>;
   createdAt: string;
+  updatedAt: string;
 }
 
 export interface DashboardStats {
