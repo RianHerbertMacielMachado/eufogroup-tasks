@@ -1,0 +1,12 @@
+{
+  "build": {
+    "builder": "dockerfile",
+    "buildCommand": "npm run build"
+  },
+  "deploy": {
+    "startCommand": "npm run start:prod",
+    "healthcheckPath": "/health",
+    "healthcheckTimeout": 30,
+    "restartPolicyMaxRetries": 5
+  }
+}

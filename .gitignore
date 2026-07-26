@@ -1,0 +1,38 @@
+# Dependências
+node_modules/
+*.log
+
+# Ambiente - NUNCA commitar!
+.env
+.env.local
+.env.*.local
+
+# Build
+dist/
+build/
+.next/
+out/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Database
+prisma/dev.db
+prisma/dev.db-journal
+
+# Cache
+.cache/
+.turbo/
+
+# Uploads (não versionar em git, usar storage externo)
+backend/uploads/
+
+# PM2
+.pm2/

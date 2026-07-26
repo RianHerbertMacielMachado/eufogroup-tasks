@@ -1,0 +1,157 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String   @id @default(cuid())
+  name          String
+  discordId     String   @unique
+  email         String?  @unique
+  password      String
+  role          UserRole @default(OPERATOR)
+  isActive      Boolean  @default(true)
+  firstLogin    Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  cityAccesses  UserCityAccess[]
+
+  @@map("users")
+}
+
+model UserCityAccess {
+  id      String @id @default(cuid())
+  userId  String
+  cityId  String
+
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  city    City   @relation(fields: [cityId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, cityId])
+  @@map("user_city_accesses")
+}
+
+model City {
+  id                String   @id @default(cuid())
+  name              String   @unique
+  slug              String   @unique
+  logoUrl           String?
+  backgroundMode    BgMode   @default(STATIC)
+  carouselInterval  Int      @default(5)
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  backgroundImages  CityBackground[]
+  employees         Employee[]
+  tasks             Task[]
+  events            Event[]
+  userAccesses      UserCityAccess[]
+
+  @@map("cities")
+}
+
+model CityBackground {
+  id        String   @id @default(cuid())
+  cityId    String
+  imageUrl  String
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+
+  city      City     @relation(fields: [cityId], references: [id], onDelete: Cascade)
+
+  @@map("city_backgrounds")
+}
+
+model Employee {
+  id        String   @id @default(cuid())
+  name      String
+  discordId String
+  cargo     String
+  funcao    String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  cityId    String   // ⭐ Isolamento Multi-Tenant
+  city      City     @relation(fields: [cityId], references: [id], onDelete: Cascade)
+
+  tasks     Task[]
+  events    Event[]
+
+  @@unique([discordId, cityId])
+  @@map("employees")
+}
+
+model Task {
+  id          String     @id @default(cuid())
+  title       String
+  description String
+  status      TaskStatus @default(PENDING)
+  priority    Priority   @default(MEDIUM)
+  dueDate     DateTime
+  cancelReason String?
+  cancelledBy String?
+  completedAt DateTime?
+  cancelledAt DateTime?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  employeeId  String
+  cityId      String     // ⭐ Isolamento Multi-Tenant
+  createdById String?
+
+  employee    Employee   @relation(fields: [employeeId], references: [id])
+  city        City       @relation(fields: [cityId], references: [id], onDelete: Cascade)
+
+  @@map("tasks")
+}
+
+model Event {
+  id          String   @id @default(cuid())
+  description String
+  cargo       String
+  createdAt   DateTime @default(now()) // ⭐ Imutável após criação
+
+  employeeId  String
+  cityId      String   // ⭐ Isolamento Multi-Tenant
+  createdById String?
+
+  employee    Employee @relation(fields: [employeeId], references: [id])
+  city        City     @relation(fields: [cityId], references: [id], onDelete: Cascade)
+
+  @@map("events")
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  ADMIN
+  OPERATOR
+}
+
+enum TaskStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum BgMode {
+  STATIC
+  CAROUSEL
+}
