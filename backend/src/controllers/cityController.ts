@@ -168,6 +168,48 @@ export const uploadCityBackground = async (req: AuthenticatedRequest, res: Respo
   }
 };
 
+export const deleteCityBackground = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const { cityId, bgId } = req.params;
+
+    const bg = await prisma.cityBackground.findFirst({ where: { id: bgId, cityId } });
+    if (!bg) {
+      res.status(404).json({ success: false, error: 'Background não encontrado' });
+      return;
+    }
+
+    // Remove arquivo físico
+    const filePath = path.join(process.cwd(), 'uploads', path.basename(bg.imageUrl));
+    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+
+    await prisma.cityBackground.delete({ where: { id: bgId } });
+
+    // Atualiza backgroundMode após remoção
+    const remaining = await prisma.cityBackground.count({ where: { cityId } });
+    const newMode = remaining > 1 ? 'CAROUSEL' : 'STATIC';
+    await prisma.city.update({ where: { id: cityId }, data: { backgroundMode: newMode as 'STATIC' | 'CAROUSEL' } });
+
+    res.json({ success: true, message: 'Background removido com sucesso' });
+  } catch (error) {
+    console.error('Delete background error:', error);
+    res.status(500).json({ success: false, error: 'Erro ao remover background' });
+  }
+};
+
+export const getCityBackgrounds = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const { cityId } = req.params;
+    const backgrounds = await prisma.cityBackground.findMany({
+      where: { cityId },
+      orderBy: { order: 'asc' }
+    });
+    res.json({ success: true, data: backgrounds });
+  } catch (error) {
+    console.error('Get backgrounds error:', error);
+    res.status(500).json({ success: false, error: 'Erro ao buscar backgrounds' });
+  }
+};
+
 export const getDashboard = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const cityId = req.cityId!;

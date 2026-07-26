@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useCity } from '../contexts/CityContext';
@@ -6,13 +6,43 @@ import { City } from '../types';
 import api from '../services/api';
 import toast from 'react-hot-toast';
 
+interface BgImage { id: string; imageUrl: string; order: number; }
+
+function useDynamicBackground(scope: 'LOGIN' | 'CITY_SELECT', intervalSeconds: number = 5) {
+  const [images, setImages] = useState<BgImage[]>([]);
+  const [currentIdx, setCurrentIdx] = useState(0);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    api.get(`/global-backgrounds?scope=${scope}`)
+      .then(({ data }) => {
+        const imgs = Array.isArray(data?.data) ? data.data : [];
+        setImages(imgs);
+      })
+      .catch(() => setImages([]));
+  }, [scope]);
+
+  useEffect(() => {
+    if (images.length <= 1) return;
+    timerRef.current = setInterval(() => {
+      setCurrentIdx(prev => (prev + 1) % images.length);
+    }, intervalSeconds * 1000);
+    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+  }, [images, intervalSeconds]);
+
+  const currentBg = images[currentIdx]?.imageUrl ?? null;
+  const isCarousel = images.length > 1;
+
+  return { currentBg, isCarousel, images, currentIdx };
+}
+
 export default function CitySelectPage() {
   const { user, logout } = useAuth();
   const { setCurrentCity } = useCity();
   const navigate = useNavigate();
   const [cities, setCities] = useState<City[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [bgIndex, setBgIndex] = useState(0);
+  const { currentBg, isCarousel, images, currentIdx } = useDynamicBackground('CITY_SELECT', 7);
 
   useEffect(() => {
     loadCities();
@@ -32,7 +62,7 @@ export default function CitySelectPage() {
   const handleCitySelect = (city: City) => {
     const userCityIds = user?.cities?.map(c => c.id) ?? [];
     const isSuperAdmin = user?.role === 'SUPER_ADMIN';
-    
+
     if (!isSuperAdmin && !userCityIds.includes(city.id)) {
       toast.error('Você não tem permissão para acessar esta cidade');
       return;
@@ -47,37 +77,71 @@ export default function CitySelectPage() {
   const isSuperAdmin = user?.role === 'SUPER_ADMIN';
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 relative overflow-hidden">
-      {/* Animated background */}
-      <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-primary-900/30 to-transparent" />
-        {[...Array(15)].map((_, i) => (
-          <div
-            key={i}
-            className="absolute rounded-full opacity-5"
-            style={{
-              background: 'radial-gradient(circle, #667eea, transparent)',
-              width: Math.random() * 300 + 100,
-              height: Math.random() * 300 + 100,
-              left: `${Math.random() * 100}%`,
-              top: `${Math.random() * 100}%`,
-              animation: `float ${5 + Math.random() * 5}s ease-in-out infinite`,
-              animationDelay: `${Math.random() * 5}s`
-            }}
-          />
-        ))}
-      </div>
+    <div className="min-h-screen relative overflow-hidden">
+
+      {/* Background dinâmico */}
+      {currentBg ? (
+        <>
+          {images.map((img, idx) => (
+            <div
+              key={img.id}
+              className="absolute inset-0 bg-center bg-cover transition-opacity duration-1000"
+              style={{
+                backgroundImage: `url(${img.imageUrl})`,
+                opacity: idx === currentIdx ? 1 : 0,
+                zIndex: 0,
+              }}
+            />
+          ))}
+          <div className="absolute inset-0 bg-black/50 z-0" />
+        </>
+      ) : (
+        /* Fallback */
+        <>
+          <div className="absolute inset-0 bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900" />
+          <div className="absolute inset-0 pointer-events-none overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-br from-primary-900/30 to-transparent" />
+            {[...Array(15)].map((_, i) => (
+              <div
+                key={i}
+                className="absolute rounded-full opacity-5"
+                style={{
+                  background: 'radial-gradient(circle, #667eea, transparent)',
+                  width: Math.random() * 300 + 100,
+                  height: Math.random() * 300 + 100,
+                  left: `${Math.random() * 100}%`,
+                  top: `${Math.random() * 100}%`,
+                  animation: `float ${5 + Math.random() * 5}s ease-in-out infinite`,
+                  animationDelay: `${Math.random() * 5}s`
+                }}
+              />
+            ))}
+          </div>
+        </>
+      )}
+
+      {/* Indicadores de carrossel */}
+      {isCarousel && (
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-2 z-20">
+          {images.map((_, idx) => (
+            <div
+              key={idx}
+              className={`h-1.5 rounded-full transition-all duration-500 ${idx === currentIdx ? 'w-6 bg-white' : 'w-1.5 bg-white/40'}`}
+            />
+          ))}
+        </div>
+      )}
 
       <div className="relative z-10 flex flex-col min-h-screen">
         {/* Header */}
-        <header className="p-6 flex items-center justify-between">
+        <header className="p-6 flex items-center justify-between backdrop-blur-sm bg-black/20">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-primary-500/20 rounded-xl flex items-center justify-center border border-primary-400/30">
               <span className="text-xl">🎯</span>
             </div>
             <div>
-              <h1 className="text-white font-bold text-lg">Eufogrup Tasks</h1>
-              <p className="text-gray-400 text-xs">Sistema de Gestão Multi-Cidade</p>
+              <h1 className="text-white font-bold text-lg drop-shadow">Eufogrup Tasks</h1>
+              <p className="text-gray-300 text-xs">Sistema de Gestão Multi-Cidade</p>
             </div>
           </div>
 
@@ -92,12 +156,12 @@ export default function CitySelectPage() {
             )}
             <div className="flex items-center gap-2">
               <div className="text-right">
-                <p className="text-white text-sm font-medium">{user?.name}</p>
-                <p className="text-gray-400 text-xs">{user?.discordId}</p>
+                <p className="text-white text-sm font-medium drop-shadow">{user?.name}</p>
+                <p className="text-gray-300 text-xs">{user?.discordId}</p>
               </div>
               <button
                 onClick={() => { logout(); navigate('/login'); }}
-                className="w-8 h-8 rounded-lg bg-gray-700 hover:bg-red-600/20 hover:text-red-400 flex items-center justify-center transition-colors"
+                className="w-8 h-8 rounded-lg bg-gray-700/80 hover:bg-red-600/20 hover:text-red-400 flex items-center justify-center transition-colors backdrop-blur-sm"
                 title="Sair"
               >
                 🚪
@@ -109,12 +173,12 @@ export default function CitySelectPage() {
         {/* Main content */}
         <main className="flex-1 flex flex-col items-center justify-center px-6 py-10">
           <div className="text-center mb-12 animate-fade-in">
-            <h2 className="text-4xl font-bold text-white mb-3">Selecione uma Cidade</h2>
-            <p className="text-gray-400 text-lg">Cada cidade é um ambiente completamente isolado</p>
+            <h2 className="text-4xl font-bold text-white mb-3 drop-shadow-lg">Selecione uma Cidade</h2>
+            <p className="text-gray-200 text-lg drop-shadow">Cada cidade é um ambiente completamente isolado</p>
           </div>
 
           {isLoading ? (
-            <div className="flex items-center gap-3 text-gray-400">
+            <div className="flex items-center gap-3 text-gray-200">
               <div className="w-6 h-6 border-2 border-primary-400/30 border-t-primary-400 rounded-full animate-spin" />
               Carregando cidades...
             </div>
@@ -187,7 +251,7 @@ export default function CitySelectPage() {
               })}
 
               {cities.length === 0 && (
-                <div className="text-center text-gray-500 py-20">
+                <div className="text-center text-gray-300 py-20">
                   <div className="text-5xl mb-4">🏙️</div>
                   <p className="text-lg">Nenhuma cidade cadastrada</p>
                   {(isSuperAdmin || user?.role === 'ADMIN') && (

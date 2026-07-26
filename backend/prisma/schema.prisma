@@ -155,3 +155,18 @@ enum BgMode {
   STATIC
   CAROUSEL
 }
+
+model GlobalBackground {
+  id        String        @id @default(cuid())
+  scope     GlobalBgScope
+  imageUrl  String
+  order     Int           @default(0)
+  createdAt DateTime      @default(now())
+
+  @@map("global_backgrounds")
+}
+
+enum GlobalBgScope {
+  LOGIN
+  CITY_SELECT
+}

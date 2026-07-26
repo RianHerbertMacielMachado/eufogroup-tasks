@@ -11,6 +11,7 @@ import taskRoutes from './routes/tasks';
 import eventRoutes from './routes/events';
 import employeeRoutes from './routes/employees';
 import userRoutes from './routes/users';
+import globalBgRoutes from './routes/globalBg';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -68,6 +69,7 @@ app.use('/api/cities/:cityId/tasks', taskRoutes);
 app.use('/api/cities/:cityId/events', eventRoutes);
 app.use('/api/cities/:cityId/employees', employeeRoutes);
 app.use('/api/admin/users', userRoutes);
+app.use('/api/global-backgrounds', globalBgRoutes);
 
 // Servir frontend em produção
 // O Dockerfile copia o build do frontend para /app/public

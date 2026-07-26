@@ -10,7 +10,15 @@ export const getTasks = async (req: AuthenticatedRequest, res: Response): Promis
     const { status, employeeId, priority, page = '1', limit = '20' } = req.query as Record<string, string>;
 
     const where: Record<string, unknown> = { cityId };
-    if (status) where.status = status;
+
+    if (status) {
+      // Filtro explícito por status (ex: ?status=COMPLETED ou ?status=CANCELLED)
+      where.status = status;
+    } else {
+      // Sem filtro → registro geral mostra apenas PENDING e IN_PROGRESS
+      where.status = { in: ['PENDING', 'IN_PROGRESS'] };
+    }
+
     if (employeeId) where.employeeId = employeeId;
     if (priority) where.priority = priority;
 

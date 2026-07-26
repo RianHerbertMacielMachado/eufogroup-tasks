@@ -4,7 +4,7 @@ import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import {
   getCities, getCityById, createCity, updateCity, deleteCity,
-  uploadCityBackground, getDashboard
+  uploadCityBackground, deleteCityBackground, getCityBackgrounds, getDashboard
 } from '../controllers/cityController';
 import { authenticate, requireAdmin, requireSuperAdmin, validateCityAccess } from '../middleware/auth';
 
@@ -46,6 +46,8 @@ router.get('/:cityId/dashboard', validateCityAccess, getDashboard);
 router.post('/', requireAdmin, createCity);
 router.put('/:cityId', requireAdmin, updateCity);
 router.delete('/:cityId', requireSuperAdmin, deleteCity);
+router.get('/:cityId/backgrounds', requireAdmin, getCityBackgrounds);
 router.post('/:cityId/backgrounds', requireAdmin, upload.array('images', 10), uploadCityBackground);
+router.delete('/:cityId/backgrounds/:bgId', requireAdmin, deleteCityBackground);
 
 export default router;
