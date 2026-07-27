@@ -12,60 +12,6 @@
 import crypto   from 'crypto';
 import https    from 'https';
 import FormData from 'form-data';
-import sharp    from 'sharp';
-
-// Limite seguro abaixo do máximo do Cloudinary Free (10MB)
-const CLOUDINARY_MAX_BYTES = 9 * 1024 * 1024; // 9MB
-// Largura máxima para redimensionamento automático
-const MAX_WIDTH_PX = 1920;
-
-/**
- * Comprime/redimensiona o buffer antes do upload.
- * - GIF: redimensiona se > MAX_WIDTH_PX (mantém animação via gifsicle/libvips)
- * - JPG/PNG/WebP: redimensiona + recomprime se > CLOUDINARY_MAX_BYTES
- * Retorna { buffer, mimeType } prontos para upload.
- */
-async function compressBuffer(
-  buffer: Buffer,
-  mimeType: string
-): Promise<{ buffer: Buffer; mimeType: string }> {
-  const isGif = mimeType === 'image/gif';
-
-  try {
-    if (isGif) {
-      // GIF: apenas redimensiona se necessário (sharp processa todos os frames)
-      const meta = await sharp(buffer, { animated: true }).metadata();
-      const w = meta.width ?? 0;
-      if (w > MAX_WIDTH_PX) {
-        const compressed = await sharp(buffer, { animated: true })
-          .resize({ width: MAX_WIDTH_PX, withoutEnlargement: true })
-          .gif()
-          .toBuffer();
-        console.log(`[compress] GIF ${w}px→${MAX_WIDTH_PX}px ${buffer.length}b→${compressed.length}b`);
-        return { buffer: compressed, mimeType: 'image/gif' };
-      }
-      // Dentro do tamanho — usa como está
-      return { buffer, mimeType };
-    }
-
-    // JPG / PNG / WebP — só comprime se necessário
-    if (buffer.length <= CLOUDINARY_MAX_BYTES) {
-      return { buffer, mimeType };
-    }
-
-    // Redimensiona + converte para WebP (melhor compressão)
-    const compressed = await sharp(buffer)
-      .resize({ width: MAX_WIDTH_PX, withoutEnlargement: true })
-      .webp({ quality: 82 })
-      .toBuffer();
-    console.log(`[compress] ${mimeType} ${buffer.length}b→${compressed.length}b (webp)`);
-    return { buffer: compressed, mimeType: 'image/webp' };
-  } catch (err) {
-    // Se sharp falhar (ex: formato inesperado), usa buffer original
-    console.warn('[compress] sharp falhou, usando buffer original:', err);
-    return { buffer, mimeType };
-  }
-}
 
 function getCloudinaryConfig() {
   const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
@@ -155,9 +101,6 @@ export async function uploadBufferToCloudinary(
 ): Promise<string> {
   const { cloudName, apiKey, apiSecret } = getCloudinaryConfig();
 
-  // Comprime/redimensiona antes de enviar
-  const { buffer: finalBuffer, mimeType: finalMime } = await compressBuffer(buffer, mimeType);
-
   const timestamp = Math.round(Date.now() / 1000).toString();
 
   // Apenas estes campos entram na assinatura (NÃO incluir file, api_key, resource_type)
@@ -172,17 +115,17 @@ export async function uploadBufferToCloudinary(
     'image/gif':  'gif',
     'image/webp': 'webp',
   };
-  const ext      = extMap[finalMime] ?? 'jpg';
+  const ext      = extMap[mimeType] ?? 'jpg';
   const filename = `upload.${ext}`;
 
   const form = new FormData();
-  form.append('file',      finalBuffer, { filename, contentType: finalMime });
+  form.append('file',      buffer, { filename, contentType: mimeType });
   form.append('folder',    folder);
   form.append('timestamp', timestamp);
   form.append('api_key',   apiKey);
   form.append('signature', signature);
 
-  console.log(`[Cloudinary] Upload: folder=${folder} mime=${finalMime} size=${finalBuffer.length}b`);
+  console.log(`[Cloudinary] Upload: folder=${folder} mime=${mimeType} size=${buffer.length}b`);
 
   const result = await httpsPostForm(`/v1_1/${cloudName}/image/upload`, form);
 
