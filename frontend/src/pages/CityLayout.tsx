@@ -21,6 +21,7 @@ interface ThemeTokens {
   itemActiveText: string;
   cityBadgeBg: string;
   cityBadgeBorder: string;
+  font: string;         // família de fonte exclusiva do layout
 }
 
 const THEMES: Record<CityLayoutType, ThemeTokens> = {
@@ -39,6 +40,7 @@ const THEMES: Record<CityLayoutType, ThemeTokens> = {
     itemActiveText: 'text-indigo-400',
     cityBadgeBg: 'bg-indigo-500/10',
     cityBadgeBorder: 'border-indigo-500/20',
+    font: "'Inter', sans-serif",
   },
   DARK_PRO: {
     bg: 'bg-[#0d0d0d]',
@@ -55,6 +57,7 @@ const THEMES: Record<CityLayoutType, ThemeTokens> = {
     itemActiveText: 'text-purple-300',
     cityBadgeBg: 'bg-purple-500/10',
     cityBadgeBorder: 'border-purple-500/30',
+    font: "'Rajdhani', sans-serif",
   },
   CORPORATE: {
     bg: 'bg-slate-900',
@@ -71,6 +74,7 @@ const THEMES: Record<CityLayoutType, ThemeTokens> = {
     itemActiveText: 'text-blue-300',
     cityBadgeBg: 'bg-blue-500/10',
     cityBadgeBorder: 'border-blue-500/30',
+    font: "'IBM Plex Sans', sans-serif",
   },
   MINIMAL: {
     bg: 'bg-gray-100',
@@ -87,6 +91,7 @@ const THEMES: Record<CityLayoutType, ThemeTokens> = {
     itemActiveText: 'text-indigo-600',
     cityBadgeBg: 'bg-indigo-50',
     cityBadgeBorder: 'border-indigo-200',
+    font: "'DM Sans', sans-serif",
   },
   MILITARY: {
     bg: 'bg-[#0a0f0a]',
@@ -103,6 +108,7 @@ const THEMES: Record<CityLayoutType, ThemeTokens> = {
     itemActiveText: 'text-green-300',
     cityBadgeBg: 'bg-green-900/30',
     cityBadgeBorder: 'border-green-700/40',
+    font: "'Oswald', sans-serif",
   },
   CYBERPUNK: {
     bg: 'bg-black',
@@ -119,18 +125,19 @@ const THEMES: Record<CityLayoutType, ThemeTokens> = {
     itemActiveText: 'text-yellow-300',
     cityBadgeBg: 'bg-yellow-400/10',
     cityBadgeBorder: 'border-yellow-400/30',
+    font: "'Orbitron', sans-serif",
   },
 };
 
 // ── Menu items ────────────────────────────────────────────────────────────────
-const menuItems = [
-  { id: 'dashboard', icon: '📊', label: 'Dashboard',             path: 'dashboard' },
-  { id: 'tasks',     icon: '📋', label: 'Registro de Tasks',     path: 'tasks' },
-  { id: 'events',    icon: '📝', label: 'Registro de Feedback',  path: 'events' },
-  { id: 'completed', icon: '✅', label: 'Tasks Concluídas',      path: 'tasks?status=COMPLETED' },
-  { id: 'cancelled', icon: '❌', label: 'Tasks Canceladas',      path: 'tasks?status=CANCELLED' },
-  { id: 'reports',   icon: '📈', label: 'Relatório',             path: 'reports' },
-  { id: 'team',      icon: '👥', label: 'Cadastro de Equipe',    path: 'team' },
+const ALL_MENU_ITEMS = [
+  { id: 'dashboard', icon: '📊', label: 'Dashboard',             path: 'dashboard',              operatorVisible: true  },
+  { id: 'tasks',     icon: '📋', label: 'Registro de Tasks',     path: 'tasks',                  operatorVisible: true  },
+  { id: 'events',    icon: '📝', label: 'Registro de Feedback',  path: 'events',                 operatorVisible: true  },
+  { id: 'completed', icon: '✅', label: 'Tasks Concluídas',      path: 'tasks?status=COMPLETED', operatorVisible: true  },
+  { id: 'cancelled', icon: '❌', label: 'Tasks Canceladas',      path: 'tasks?status=CANCELLED', operatorVisible: true  },
+  { id: 'reports',   icon: '📈', label: 'Relatório',             path: 'reports',                operatorVisible: true  },
+  { id: 'team',      icon: '👥', label: 'Cadastro de Equipe',    path: 'team',                   operatorVisible: false },
 ];
 
 // ── Componente ────────────────────────────────────────────────────────────────
@@ -147,6 +154,12 @@ export default function CityLayout() {
   const t = THEMES[layout];
 
   const isSuperAdmin = user?.role === 'SUPER_ADMIN';
+  const isOperator   = user?.role === 'OPERATOR';
+
+  // Filtra menu: OPERATOR não vê "Cadastro de Equipe"
+  const menuItems = ALL_MENU_ITEMS.filter(item =>
+    isOperator ? item.operatorVisible : true
+  );
 
   const getActiveItem = () => {
     const path = location.pathname.split('/').pop() || '';
@@ -168,7 +181,10 @@ export default function CityLayout() {
   };
 
   return (
-    <div className={clsx('flex h-screen overflow-hidden', t.bg)}>
+    <div
+      className={clsx('flex h-screen overflow-hidden', t.bg)}
+      style={{ fontFamily: t.font }}
+    >
       {/* Mobile overlay */}
       {sidebarMobileOpen && (
         <div

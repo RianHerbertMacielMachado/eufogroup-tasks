@@ -194,6 +194,7 @@ export default function TasksPage() {
   // Cidades disponíveis carregadas da API (confiável para SUPER_ADMIN e usuários comuns)
   const [availableCities, setAvailableCities] = useState<City[]>([]);
   const isSuperAdmin = user?.role === 'SUPER_ADMIN';
+  const isAdmin      = user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN';
   const userCityIds: string[] = Array.isArray(user?.cities)
     ? (user!.cities as City[]).map(c => c.id).filter(Boolean)
     : [];
@@ -344,7 +345,7 @@ export default function TasksPage() {
             {pagination?.total || 0} tasks encontradas
           </p>
         </div>
-        {!statusFilter && (
+        {!statusFilter && isAdmin && (
           <button onClick={() => setShowModal(true)} className="btn-primary flex items-center gap-2">
             <span>➕</span> Nova Task
           </button>

@@ -40,6 +40,16 @@ const AdminRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
+// Bloqueia OPERATOR de acessar rotas exclusivas de ADMIN/SUPER_ADMIN
+const NonOperatorRoute = ({ children }: { children: React.ReactNode }) => {
+  const { user, isLoading } = useAuth();
+  if (isLoading) return null;
+  if (!user || user.role === 'OPERATOR') {
+    return <Navigate to="dashboard" replace />;
+  }
+  return <>{children}</>;
+};
+
 function AppRoutes() {
   return (
     <Routes>
@@ -61,7 +71,11 @@ function AppRoutes() {
         <Route path="tasks" element={<TasksPage />} />
         <Route path="events" element={<EventsPage />} />
         <Route path="reports" element={<ReportsPage />} />
-        <Route path="team" element={<TeamPage />} />
+        <Route path="team" element={
+          <NonOperatorRoute>
+            <TeamPage />
+          </NonOperatorRoute>
+        } />
       </Route>
       
       <Route path="/admin" element={

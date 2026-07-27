@@ -314,9 +314,11 @@ export default function EventsPage() {
           <h1 className="text-2xl font-bold text-white">📝 Registro de Feedback</h1>
           <p className="text-gray-400 text-sm mt-1">{totalCount} registro{totalCount !== 1 ? 's' : ''} encontrado{totalCount !== 1 ? 's' : ''}</p>
         </div>
-        <button onClick={() => setShowCreateModal(true)} className="btn-primary flex items-center gap-2">
-          <span>➕</span> Novo Feedback
-        </button>
+        {isAdmin && (
+          <button onClick={() => setShowCreateModal(true)} className="btn-primary flex items-center gap-2">
+            <span>➕</span> Novo Feedback
+          </button>
+        )}
       </div>
 
       {/* Filtros */}
