@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
 import {
   getCities, getCityById, createCity, updateCity, deleteCity,
   uploadCityBackground, deleteCityBackground, getCityBackgrounds, getDashboard
@@ -8,21 +8,34 @@ import memoryUpload from '../utils/memoryUpload';
 
 const router = Router();
 
-// Rotas públicas (lista de cidades para tela inicial)
+function uploadImages(req: Request, res: Response, next: NextFunction) {
+  memoryUpload.array('images', 10)(req, res, (err) => {
+    if (err) {
+      const msg = err.code === 'LIMIT_FILE_SIZE'
+        ? 'Arquivo muito grande. Tamanho máximo: 20MB por imagem.'
+        : err.message || 'Erro ao processar arquivo';
+      res.status(400).json({ success: false, error: msg });
+      return;
+    }
+    next();
+  });
+}
+
+// Rota pública (lista de cidades para tela inicial)
 router.get('/', getCities);
 
-// Rotas protegidas
 router.use(authenticate);
 
+// Acesso à cidade: qualquer usuário autenticado com acesso
 router.get('/:cityId', validateCityAccess, getCityById);
 router.get('/:cityId/dashboard', validateCityAccess, getDashboard);
 
-// Admin only
-router.post('/', requireAdmin, createCity);
-router.put('/:cityId', requireAdmin, updateCity);
+// Gerenciamento de cidades e backgrounds: apenas SUPER_ADMIN
+router.post('/',     requireSuperAdmin, createCity);
+router.put('/:cityId', requireSuperAdmin, updateCity);
 router.delete('/:cityId', requireSuperAdmin, deleteCity);
-router.get('/:cityId/backgrounds', requireAdmin, getCityBackgrounds);
-router.post('/:cityId/backgrounds', requireAdmin, memoryUpload.array('images', 10), uploadCityBackground);
-router.delete('/:cityId/backgrounds/:bgId', requireAdmin, deleteCityBackground);
+router.get('/:cityId/backgrounds',           requireSuperAdmin, getCityBackgrounds);
+router.post('/:cityId/backgrounds',          requireSuperAdmin, uploadImages, uploadCityBackground);
+router.delete('/:cityId/backgrounds/:bgId',  requireSuperAdmin, deleteCityBackground);
 
 export default router;

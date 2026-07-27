@@ -81,7 +81,7 @@ export const createCity = async (req: AuthenticatedRequest, res: Response): Prom
 export const updateCity = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const { cityId } = req.params;
-    const { name, backgroundMode, carouselInterval, isActive } = req.body;
+    const { name, backgroundMode, carouselInterval, isActive, layout } = req.body;
 
     const updateData: Record<string, unknown> = {};
     if (name !== undefined) {
@@ -91,6 +91,7 @@ export const updateCity = async (req: AuthenticatedRequest, res: Response): Prom
     if (backgroundMode !== undefined) updateData.backgroundMode = backgroundMode;
     if (carouselInterval !== undefined) updateData.carouselInterval = carouselInterval;
     if (isActive !== undefined) updateData.isActive = isActive;
+    if (layout !== undefined) updateData.layout = layout;
 
     const city = await prisma.city.update({
       where: { id: cityId },

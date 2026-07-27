@@ -26,35 +26,45 @@ export const authenticate = (req: AuthenticatedRequest, res: Response, next: Nex
   }
 };
 
-export const requireAdmin = (req: AuthenticatedRequest, res: Response, next: NextFunction): void => {
-  if (!req.user) {
-    res.status(401).json({ success: false, error: 'Não autenticado' });
-    return;
-  }
+// ── Níveis de acesso ──────────────────────────────────────────────────────────
 
-  if (req.user.role !== 'SUPER_ADMIN' && req.user.role !== 'ADMIN') {
-    res.status(403).json({ success: false, error: 'Acesso negado. Permissão de administrador necessária.' });
-    return;
-  }
-
-  next();
-};
-
+/**
+ * SUPER_ADMIN: acesso total ao painel administrativo e todas as cidades.
+ */
 export const requireSuperAdmin = (req: AuthenticatedRequest, res: Response, next: NextFunction): void => {
   if (!req.user) {
     res.status(401).json({ success: false, error: 'Não autenticado' });
     return;
   }
-
   if (req.user.role !== 'SUPER_ADMIN') {
-    res.status(403).json({ success: false, error: 'Acesso negado. Permissão de super administrador necessária.' });
+    res.status(403).json({ success: false, error: 'Acesso negado. Apenas Super Administradores.' });
     return;
   }
-
   next();
 };
 
-// ⭐ Middleware crítico de isolamento Multi-Tenant
+/**
+ * ADMIN ou SUPER_ADMIN: pode criar/editar tasks e feedbacks.
+ * OPERATOR não passa por aqui.
+ */
+export const requireAdmin = (req: AuthenticatedRequest, res: Response, next: NextFunction): void => {
+  if (!req.user) {
+    res.status(401).json({ success: false, error: 'Não autenticado' });
+    return;
+  }
+  if (req.user.role !== 'SUPER_ADMIN' && req.user.role !== 'ADMIN') {
+    res.status(403).json({ success: false, error: 'Acesso negado. Permissão de administrador necessária.' });
+    return;
+  }
+  next();
+};
+
+// ── Multi-tenant ──────────────────────────────────────────────────────────────
+
+/**
+ * Valida acesso à cidade.
+ * SUPER_ADMIN acessa tudo; outros precisam ter a cityId no JWT.
+ */
 export const validateCityAccess = (req: AuthenticatedRequest, res: Response, next: NextFunction): void => {
   if (!req.user) {
     res.status(401).json({ success: false, error: 'Não autenticado' });
@@ -62,25 +72,19 @@ export const validateCityAccess = (req: AuthenticatedRequest, res: Response, nex
   }
 
   const cityId = req.params.cityId;
-
   if (!cityId) {
     res.status(400).json({ success: false, error: 'ID da cidade não fornecido' });
     return;
   }
 
-  // Super Admin tem acesso a todas as cidades
   if (req.user.role === 'SUPER_ADMIN') {
     req.cityId = cityId;
     next();
     return;
   }
 
-  // Verifica se o usuário tem acesso à cidade solicitada
   if (!req.user.cityIds.includes(cityId)) {
-    res.status(403).json({ 
-      success: false, 
-      error: 'Acesso negado. Você não tem permissão para acessar esta cidade.' 
-    });
+    res.status(403).json({ success: false, error: 'Acesso negado. Você não tem permissão para acessar esta cidade.' });
     return;
   }
 

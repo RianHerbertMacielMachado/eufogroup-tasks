@@ -8,6 +8,8 @@ export interface User {
   cities: City[];
 }
 
+export type CityLayoutType = 'CLASSIC' | 'DARK_PRO' | 'CORPORATE' | 'MINIMAL' | 'MILITARY' | 'CYBERPUNK';
+
 export interface City {
   id: string;
   name: string;
@@ -15,6 +17,7 @@ export interface City {
   logoUrl?: string;
   backgroundMode: 'STATIC' | 'CAROUSEL';
   carouselInterval: number;
+  layout: CityLayoutType;
   isActive: boolean;
   backgroundImages?: CityBackground[];
   _count?: { employees: number; tasks: number; events: number };

@@ -1,0 +1,5 @@
+-- CreateEnum
+CREATE TYPE "CityLayout" AS ENUM ('CLASSIC', 'DARK_PRO', 'CORPORATE', 'MINIMAL', 'MILITARY', 'CYBERPUNK');
+
+-- AlterTable
+ALTER TABLE "cities" ADD COLUMN "layout" "CityLayout" NOT NULL DEFAULT 'CLASSIC';

@@ -5,7 +5,54 @@ import api from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import toast from 'react-hot-toast';
 
-type AdminTab = 'cities' | 'users' | 'global-bg';
+type AdminTab = 'cities' | 'users' | 'global-bg' | 'layouts';
+
+type CityLayoutType = 'CLASSIC' | 'DARK_PRO' | 'CORPORATE' | 'MINIMAL' | 'MILITARY' | 'CYBERPUNK';
+
+const LAYOUT_OPTIONS: { id: CityLayoutType; label: string; icon: string; desc: string; colors: string[] }[] = [
+  {
+    id: 'CLASSIC',
+    label: 'Classic Dark',
+    icon: '🌑',
+    desc: 'Sidebar escura com acentos roxos — design padrão do sistema',
+    colors: ['#111827', '#1f2937', '#6366f1'],
+  },
+  {
+    id: 'DARK_PRO',
+    label: 'Dark Pro',
+    icon: '💜',
+    desc: 'Dark com acentos neon violeta, cards com borda luminosa',
+    colors: ['#0d0d0d', '#1a1a2e', '#a855f7'],
+  },
+  {
+    id: 'CORPORATE',
+    label: 'Corporate',
+    icon: '🏢',
+    desc: 'Tons de azul corporativo, visual limpo e profissional',
+    colors: ['#0f172a', '#1e3a5f', '#3b82f6'],
+  },
+  {
+    id: 'MINIMAL',
+    label: 'Minimal Light',
+    icon: '☀️',
+    desc: 'Fundo branco/cinza claro, tipografia clean e arejada',
+    colors: ['#f9fafb', '#e5e7eb', '#6366f1'],
+  },
+  {
+    id: 'MILITARY',
+    label: 'Military',
+    icon: '🪖',
+    desc: 'Verde militar, fonte bold, visual tático e operacional',
+    colors: ['#0a0f0a', '#1a2e1a', '#4ade80'],
+  },
+  {
+    id: 'CYBERPUNK',
+    label: 'Cyberpunk',
+    icon: '⚡',
+    desc: 'Fundo preto com acentos amarelo/ciano neon estilo cyber',
+    colors: ['#050505', '#0a0a0a', '#facc15'],
+  },
+];
 
 interface CityForm { name: string; carouselInterval: number; }
 interface UserForm { name: string; discordId: string; email: string; role: string; cityIds: string[]; password: string; }
@@ -403,6 +450,144 @@ function GlobalBgModal({
 }
 
 // ================================================================
+// COMPONENTE: SELETOR DE LAYOUTS
+// ================================================================
+function LayoutsTab({ cities, onUpdated }: { cities: City[]; onUpdated: () => void }) {
+  const [selectedCity, setSelectedCity] = useState<City | null>(cities[0] ?? null);
+  const [saving, setSaving] = useState(false);
+
+  const handleSelectLayout = async (cityId: string, layout: CityLayoutType) => {
+    setSaving(true);
+    try {
+      await api.put(`/cities/${cityId}`, { layout });
+      toast.success('Layout atualizado com sucesso!');
+      onUpdated();
+      // atualiza cidade selecionada localmente
+      setSelectedCity(prev => prev?.id === cityId ? { ...prev, layout } : prev);
+    } catch {
+      toast.error('Erro ao salvar layout');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (cities.length === 0) {
+    return (
+      <div className="text-center py-20 text-gray-400">
+        <div className="text-5xl mb-4">🏙️</div>
+        <p>Nenhuma cidade cadastrada ainda.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6 animate-fade-in">
+      <div>
+        <h2 className="text-xl font-bold text-white mb-1">🎨 Layouts de Cidade</h2>
+        <p className="text-gray-400 text-sm">Escolha o tema visual de cada cidade. O layout é aplicado imediatamente para todos os usuários daquela cidade.</p>
+      </div>
+
+      {/* Seletor de cidade */}
+      <div className="flex gap-2 flex-wrap">
+        {cities.map(city => (
+          <button
+            key={city.id}
+            onClick={() => setSelectedCity(city)}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all border ${
+              selectedCity?.id === city.id
+                ? 'bg-primary-500 text-white border-primary-500'
+                : 'bg-gray-800 text-gray-400 hover:text-white border-gray-700'
+            }`}
+          >
+            🏙️ {city.name}
+            <span className="ml-2 text-xs opacity-70">
+              {LAYOUT_OPTIONS.find(l => l.id === city.layout)?.label ?? 'Classic'}
+            </span>
+          </button>
+        ))}
+      </div>
+
+      {/* Grid de layouts */}
+      {selectedCity && (
+        <div>
+          <p className="text-gray-300 text-sm mb-4">
+            Layout atual de <span className="text-white font-semibold">{selectedCity.name}</span>:
+            <span className="ml-2 text-primary-400 font-semibold">
+              {LAYOUT_OPTIONS.find(l => l.id === selectedCity.layout)?.label ?? 'Classic Dark'}
+            </span>
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+            {LAYOUT_OPTIONS.map(opt => {
+              const isActive = (selectedCity.layout ?? 'CLASSIC') === opt.id;
+              return (
+                <button
+                  key={opt.id}
+                  disabled={saving}
+                  onClick={() => handleSelectLayout(selectedCity.id, opt.id)}
+                  className={`relative rounded-2xl overflow-hidden border-2 transition-all text-left group ${
+                    isActive
+                      ? 'border-primary-500 ring-2 ring-primary-500/40'
+                      : 'border-gray-700 hover:border-gray-500'
+                  } ${saving ? 'opacity-60 cursor-not-allowed' : ''}`}
+                >
+                  {/* Preview visual do layout */}
+                  <div
+                    className="h-32 w-full flex flex-col"
+                    style={{ background: opt.colors[0] }}
+                  >
+                    {/* Simula sidebar */}
+                    <div className="flex h-full">
+                      <div className="w-10 h-full flex flex-col gap-1 p-1.5" style={{ background: opt.colors[1] }}>
+                        {[...Array(5)].map((_, i) => (
+                          <div key={i} className="h-2 rounded-sm w-full opacity-60"
+                            style={{ background: i === 1 ? opt.colors[2] : opt.colors[0] }} />
+                        ))}
+                      </div>
+                      <div className="flex-1 p-2 space-y-1.5">
+                        {/* Simula header */}
+                        <div className="h-3 rounded w-3/4 opacity-40" style={{ background: opt.colors[2] }} />
+                        {/* Simula cards */}
+                        <div className="grid grid-cols-2 gap-1">
+                          {[...Array(4)].map((_, i) => (
+                            <div key={i} className="h-6 rounded-md opacity-30" style={{ background: opt.colors[1] }}>
+                              <div className="h-1 mt-1 mx-1 rounded opacity-60" style={{ background: opt.colors[2] }} />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                    {/* Paleta de cores */}
+                    <div className="absolute top-2 right-2 flex gap-1">
+                      {opt.colors.map((c, i) => (
+                        <div key={i} className="w-3 h-3 rounded-full border border-white/20" style={{ background: c }} />
+                      ))}
+                    </div>
+                    {/* Badge ativo */}
+                    {isActive && (
+                      <div className="absolute top-2 left-2 bg-primary-500 text-white text-xs px-2 py-0.5 rounded-full font-semibold">
+                        ✓ Ativo
+                      </div>
+                    )}
+                  </div>
+                  {/* Info */}
+                  <div className="p-3 bg-gray-800">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-lg">{opt.icon}</span>
+                      <span className="text-white font-semibold text-sm">{opt.label}</span>
+                    </div>
+                    <p className="text-gray-400 text-xs leading-relaxed">{opt.desc}</p>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ================================================================
 // PÁGINA PRINCIPAL
 // ================================================================
 export default function AdminPage() {
@@ -507,6 +692,20 @@ export default function AdminPage() {
 
   const isSuperAdmin = user?.role === 'SUPER_ADMIN';
 
+  // Bloquear acesso se não for SUPER_ADMIN
+  if (!isSuperAdmin) {
+    return (
+      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <div className="text-6xl">🔒</div>
+          <h2 className="text-white text-xl font-bold">Acesso Restrito</h2>
+          <p className="text-gray-400 text-sm">O painel administrativo é exclusivo para Super Administradores.</p>
+          <button onClick={() => navigate('/')} className="btn-primary">Voltar</button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-900">
       {/* Header */}
@@ -533,22 +732,24 @@ export default function AdminPage() {
           >
             🏙️ Cidades
           </button>
-          {isSuperAdmin && (
-            <button
-              onClick={() => setTab('users')}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${tab === 'users' ? 'bg-primary-500 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'}`}
-            >
-              👤 Usuários
-            </button>
-          )}
-          {isSuperAdmin && (
-            <button
-              onClick={() => setTab('global-bg')}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${tab === 'global-bg' ? 'bg-primary-500 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'}`}
-            >
-              🌐 Backgrounds Globais
-            </button>
-          )}
+          <button
+            onClick={() => setTab('users')}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${tab === 'users' ? 'bg-primary-500 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'}`}
+          >
+            👤 Usuários
+          </button>
+          <button
+            onClick={() => setTab('global-bg')}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${tab === 'global-bg' ? 'bg-primary-500 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'}`}
+          >
+            🌐 Backgrounds Globais
+          </button>
+          <button
+            onClick={() => setTab('layouts')}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${tab === 'layouts' ? 'bg-primary-500 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'}`}
+          >
+            🎨 Layouts
+          </button>
         </div>
 
         {/* ── Tab Cidades ── */}
@@ -600,11 +801,9 @@ export default function AdminPage() {
                       <button onClick={() => openCityEdit(city)} className="flex-1 text-xs py-1.5 rounded-lg bg-primary-500/20 text-primary-400 hover:bg-primary-500/30 transition-colors">
                         ✏️ Editar
                       </button>
-                      {isSuperAdmin && (
-                        <button onClick={() => handleDeleteCity(city)} className="flex-1 text-xs py-1.5 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors">
-                          🗑️ Excluir
-                        </button>
-                      )}
+                      <button onClick={() => handleDeleteCity(city)} className="flex-1 text-xs py-1.5 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors">
+                        🗑️ Excluir
+                      </button>
                     </div>
                   </div>
                 ))}
@@ -614,7 +813,7 @@ export default function AdminPage() {
         )}
 
         {/* ── Tab Usuários ── */}
-        {tab === 'users' && isSuperAdmin && (
+        {tab === 'users' && (
           <div className="space-y-5 animate-fade-in">
             <div className="flex justify-between items-center">
               <h2 className="text-xl font-bold text-white">Usuários ({users.length})</h2>
@@ -650,7 +849,7 @@ export default function AdminPage() {
         )}
 
         {/* ── Tab Backgrounds Globais ── */}
-        {tab === 'global-bg' && isSuperAdmin && (
+        {tab === 'global-bg' && (
           <div className="space-y-5 animate-fade-in">
             <div>
               <h2 className="text-xl font-bold text-white mb-1">🌐 Backgrounds Globais</h2>
@@ -691,6 +890,11 @@ export default function AdminPage() {
               </div>
             </div>
           </div>
+        )}
+
+        {/* ── Tab Layouts ── */}
+        {tab === 'layouts' && (
+          <LayoutsTab cities={cities} onUpdated={loadCities} />
         )}
       </div>
 
